@@ -140,8 +140,7 @@ function Set-TervisSFTPServerConfiguration {
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir /etc/puppet/manifests"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install ceh-fstab"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
-
-
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
         
     $CredentialFileLocation = "/etc/SFTPServiceAccountCredentials.txt"
     $SFTPRootDirectory = "/sftpdata/$LocalSFTPRepoUserAccount/inbound"
@@ -183,6 +182,15 @@ host { `$::fqdn:
       ip           => `$::ipaddress,
       host_aliases => [`$::hostname]
     }
+class { 'sudo': }
+sudo::conf { 'domainadmins':
+  priority => 10,
+  content  => "%Domain^Admins ALL=(ALL) ALL",
+}
+sudo::conf { 'linuxserveradministrator':
+  priority => 10,
+  content  => '%TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL',
+}
 "@
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $SFTPRootDirectory"
