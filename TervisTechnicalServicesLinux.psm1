@@ -25,38 +25,55 @@ function New-TervisTechnicalServicesLinuxSFTPServiceCNAME {
     )
 }
 
+Function Wait-ForPortAvailable {
+    [Parameter(Mandatory)]$IPAddress,
+    [Parameter(Mandatory)]$PortNumbertoMonitor
+
+    do {
+        Write-Verbose "Waiting for VM to come online..."
+        sleep 3
+    } until (Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
+
+}
+
+Function Wait-ForPortNotAvailable {
+    [Parameter(Mandatory)]$IPAddress,
+    [Parameter(Mandatory)]$PortNumbertoMonitor
+
+    do {
+        Write-Verbose "Waiting for VM to shutdown..."
+        sleep 3
+    } While (Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
+}
+
+
+
 function Start-TervisVMAndWaitForPort {
-    Param(
-      [Parameter(Mandatory)]
+    Param (
+        [Parameter(Mandatory)]
         $PortNumbertoMonitor,
-      [Parameter(Mandatory, ValueFromPipeline)]
+        
+        [Parameter(Mandatory, ValueFromPipeline)]
         $TervisVMObject
     )
-    $IPAddress = $TervisVMObject.DhcpServerv4Lease | select -first 1 -Wait -ExpandProperty ipaddress | select -ExpandProperty IPAddressToString
+
     Start-VM -ComputerName $TervisVMObject.ComputerName -Name $TervisVMObject.Name
-    do{
-        Write-Host "Waiting for VM to come online..."
-        sleep 3
-    }until(Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | ? { $_.TcpTestSucceeded })
+    Wait-ForPortAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
 }
 
 function Restart-TervisVMAndWaitForPort {
     Param(
-      [Parameter(Mandatory)]
+        [Parameter(Mandatory)]
         $PortNumbertoMonitor,
-      [Parameter(Mandatory, ValueFromPipeline)]
+        
+        [Parameter(Mandatory, ValueFromPipeline)]
         $TervisVMObject
     )
-    $IPAddress = $TervisVMObject.DhcpServerv4Lease | select -first 1 -Wait -ExpandProperty ipaddress | select -ExpandProperty IPAddressToString
+    
     Restart-VM -ComputerName $TervisVMObject.ComputerName -Name $TervisVMObject.Name -force
-    do{
-        Write-Host "Waiting for VM to shutdown..."
-        sleep 3
-    }While(Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | ? { $_.TcpTestSucceeded })
-    do{
-        Write-Host "Waiting for VM to come online..."
-        sleep 3
-    }until(Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | ? { $_.TcpTestSucceeded })
+
+    Wait-ForPortNotAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
+    Wait-ForPortAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
 }
 
 function New-TervisTechnicalServicesApplicationVM {
@@ -76,32 +93,38 @@ function New-TervisTechnicalServicesApplicationVM {
             }
     }
 
-$LastComputerNameCountFromAD = ((get-adcomputer -filter "name -like `"$($ComputerNameSuffixInAD)*`"" | select name | Sort-Object -Descending | select -last 1).name) -replace "inf-sftp",""
-$NextComputerNameWithoutEnvironmentPrefix = "sftp"+(($LastComputerNameCountFromAD -as [int]) + 1).tostring("00")
-$VM = New-TervisVM -VMNameWithoutEnvironmentPrefix $NextComputerNameWithoutEnvironmentPrefix -VMSizeName $VMSizeName -VMOperatingSystemTemplateName "$VMOperatingSystemTemplateName" -EnvironmentName $Environmentname -Cluster $Cluster -DHCPScopeID $DHCPScopeID -Verbose
-$TervisVMObject = $vm | get-tervisVM
-$TervisVMObject
+    $LastComputerNameCountFromAD = (
+        get-adcomputer -filter "name -like '$($ComputerNameSuffixInAD)*'" | 
+        select -ExpandProperty name | 
+        Sort-Object -Descending | 
+        select -last 1
+    ) -replace $ComputernameSuffixInAD,""
+
+    $NextComputerNameWithoutEnvironmentPrefix = "sftp" + ([int]$LastComputerNameCountFromAD + 1).tostring("00")
+    $VM = New-TervisVM -VMNameWithoutEnvironmentPrefix $NextComputerNameWithoutEnvironmentPrefix -VMSizeName $VMSizeName -VMOperatingSystemTemplateName "$VMOperatingSystemTemplateName" -EnvironmentName $Environmentname -Cluster $Cluster -DHCPScopeID $DHCPScopeID -Verbose   
+    $TervisVMObject = $vm | get-tervisVM
+    $TervisVMObject
 }
 
 function Set-TervisSFTPServerConfiguration {
 
     Param(
-      [Parameter(Mandatory)]
+        [Parameter(Mandatory)]
         $ServiceName,
-      [Parameter(Mandatory)]
+
+        [Parameter(Mandatory)]
         $PathToSFTPDataShare,
-      [Parameter(Mandatory, ValueFromPipeline)]
+
+        [Parameter(Mandatory, ValueFromPipeline)]
         $TervisVMObject
     )
 
-    Start-TervisVMAndWaitForPort -PortNumbertoMonitor "22" $TervisVMObject
-
-    $IPAddress = $TervisVMObject.DhcpServerv4Lease | select -first 1 -Wait -ExpandProperty ipaddress | select -ExpandProperty IPAddressToString
+    Start-TervisVMAndWaitForPort -PortNumbertoMonitor "22" -TervisVMObject $TervisVMObject
 
     $CentOSVMPasswordStateEntry = Get-PasswordStateCredentialFromFile -SecuredAPIkeyFilePath "\\fs1\disasterrecovery\Source Controlled Items\SecuredCredential API Keys\CentOSTemplateDefaultRoot.apikey"
     $secpassword = ConvertTo-SecureString $CentOSVMPasswordStateEntry.Password -AsPlainText -force
     $CentOSVMCredential = New-Object System.Management.Automation.PSCredential ($CentOSVMPasswordStateEntry.UserName, $secpassword)
-    New-SSHSession -Credential $CentOSVMCredential -ComputerName $IpAddress -AcceptKey
+    New-SSHSession -Credential $CentOSVMCredential -ComputerName $TervisVMObject.IpAddress -AcceptKey
 
     $PathToCIFSShareServiceAccountSecureStringFile = "\\fs1\disasterrecovery\Source Controlled Items\SecuredCredential API Keys\inf-sftp.apikey"
     $PasswordstateCredential = Get-PasswordStateCredentialFromFile $PathToCIFSShareServiceAccountSecureStringFile
