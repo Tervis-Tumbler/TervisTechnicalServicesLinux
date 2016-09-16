@@ -26,9 +26,10 @@ function New-TervisTechnicalServicesLinuxSFTPServiceCNAME {
 }
 
 Function Wait-ForPortAvailable {
-    [Parameter(Mandatory)]$IPAddress,
-    [Parameter(Mandatory)]$PortNumbertoMonitor
-
+    param (
+        [Parameter(Mandatory)]$IPAddress,
+        [Parameter(Mandatory)]$PortNumbertoMonitor
+    )
     do {
         Write-Verbose "Waiting for VM to come online..."
         sleep 3
@@ -37,9 +38,12 @@ Function Wait-ForPortAvailable {
 }
 
 Function Wait-ForPortNotAvailable {
-    [Parameter(Mandatory)]$IPAddress,
-    [Parameter(Mandatory)]$PortNumbertoMonitor
+    param (
+        [Parameter(Mandatory)]$IPAddress,
+        [Parameter(Mandatory)]$PortNumbertoMonitor
+    )
 
+    $IPAddress 
     do {
         Write-Verbose "Waiting for VM to shutdown..."
         sleep 3
