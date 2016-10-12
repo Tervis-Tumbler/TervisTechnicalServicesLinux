@@ -33,7 +33,7 @@ Function Wait-ForPortAvailable {
     do {
         Write-Verbose "Waiting for VM to come online..."
         sleep 3
-    } until (Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
+    } until (Test-NetConnection $IPAddress -Port $PortNumbertoMonitor -WarningAction SilentlyContinue | Where { $_.TcpTestSucceeded })
 
 }
 
@@ -47,7 +47,7 @@ Function Wait-ForPortNotAvailable {
     do {
         Write-Verbose "Waiting for VM to shutdown..."
         sleep 3
-    } While (Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
+    } While (Test-NetConnection $IPAddress -Port $PortNumbertoMonitor -WarningAction SilentlyContinue | Where { $_.TcpTestSucceeded })
 }
 
 
