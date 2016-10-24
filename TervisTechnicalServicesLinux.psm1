@@ -26,28 +26,29 @@ function New-TervisTechnicalServicesLinuxSFTPServiceCNAME {
 }
 
 Function Wait-ForPortAvailable {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory)]$IPAddress,
+        [Parameter(Mandatory)][Alias("IPAddress")]$ComputerName,
         [Parameter(Mandatory)]$PortNumbertoMonitor
     )
     do {
-        Write-Verbose "Waiting for VM to come online..."
+        Write-Verbose "Waiting for $ComputerName to come online..."
         sleep 3
-    } until (Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
+    } until (Test-NetConnection -ComputerName $ComputerName -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
 
 }
 
 Function Wait-ForPortNotAvailable {
+    [CmdletBinding()]
     param (
-        [Parameter(Mandatory)]$IPAddress,
+        [Parameter(Mandatory)][Alias("IPAddress")]$ComputerName,
         [Parameter(Mandatory)]$PortNumbertoMonitor
     )
 
-    $IPAddress 
     do {
-        Write-Verbose "Waiting for VM to shutdown..."
+        Write-Verbose "Waiting for $ComputerName to shutdown..."
         sleep 3
-    } While (Test-NetConnection $IPAddress -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
+    } While (Test-NetConnection -ComputerName $ComputerName -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
 }
 
 
