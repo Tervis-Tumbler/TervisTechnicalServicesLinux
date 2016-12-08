@@ -1,15 +1,98 @@
-﻿function New-TervisTechnicalServicesLinuxSFTPService {
+﻿#Requires -Modules TervisVirtualization
+
+
+function New-TervisTechnicalServicesLinuxSFTPService {
     param (
         [Parameter(Mandatory)]
-            $SFTPServiceName
+            $VendorName,
+        [Parameter(Mandatory)]
+            $NamespacePath
     )
 
-    
+    $ADUsername = "$VendorName-SFTP"
+    $PasswordstateCredentialUsername = $ADUsername + "@tervis.prv"
+    $PasswordstateCredentialTitle = "$VendorName SFTP Login User"
+    $PasswordstateListID = "33"  #Development Administrator List
+    $PasswordstateEntry = New-PasswordstateEntry -PasswordListID $PasswordstateListID -Username $PasswordstateCredentialUsername -Title $PasswordstateCredentialTitle
+    $PasswordsatateEntryLink = "http://passwordstate/pid=$PasswordstateEntry.PasswordID" 
+    $SFTPMountPath = ($NamespacePath -replace "\\","/") + "/$VendorName"
+    $TargetShareComputername = Get-DfsnFolderTarget -Path $NamespacePath | %{(($_.TargetPath -replace "\\\\","") -split "\\")[0]}
+    $SFTPFQDN = ($VendorName + "sftp.tervis.com").ToLower()
 
-    [pscustomobject][ordered]@{
-        UNCPathLocalNetWorkUsers = $UNCPathLocalNetWorkUsers
-        PathToPasswordStateCredential = ""
+    #New-TervisADVendorUser -Username $ADUsername
+    $SFTPVMObject = New-TervisTechnicalServicesApplicationVM -ApplicationType SFTP
+
+    $SecurityGroupPrefix = "Privilege" + (($NamespacePath -replace "\\\\tervis.prv","") -replace "\\","_") + "_$VendorName"
+    $SecurityGroupPermissionSuffix = "RW"
+    $EnvironmentList = "Delta","Epsilon","Production"
+
+    $SFTPServiceSummary = [pscustomobject][ordered]@{
+        "VM Name" = $SFTPVMObject.Name
+        "VM IP" = $SFTPVMObject.IPAddress
+        "PWState Credential" = $PasswordstateListID
+        "SFTP Username" = $PasswordstateCredentialUsername
+        "SFTP URL" = $SFTPFQDN
     }
+
+    Foreach($Environment in $EnvironmentList){
+        $SecurityGroupName = "$SecurityGroupPrefix`_$Environment`_$SecurityGroupPermissionSuffix"
+        $Path = "$NamespacePath`\$VendorName`\$Environment"
+        New-Item -Path $Path -ItemType Directory
+        New-ADGroup -GroupCategory:"Security" -GroupScope:"Universal" -Name:"$SecurityGroupName" -Path:"OU=Company - Security Groups,DC=tervis,DC=prv" -SamAccountName:"$SecurityGroupName" -Server:"DC8.tervis.prv"
+        do{
+            Sleep -Seconds 5
+        } until(Get-ADGroup -filter {name -eq $SecurityGroupName})
+        Add-ADGroupMember -Identity $SecurityGroupName -Members "inf-sftp"
+        $Acl = (Get-Item $Path).GetAccessControl('Access')
+        $Ar = New-Object System.Security.AccessControl.FileSystemAccessRule($SecurityGroupName, 'Modify', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+        $Acl.SetAccessRule($Ar)
+        Set-Acl -path $Path -AclObject $Acl
+
+        $SFTPServiceSummary | Add-Member NoteProperty "$Environment SFTP Vendor Facing Path" "/$VendorName/$Environment"
+        $SFTPServiceSummary | Add-Member NoteProperty "$Environment Tervis Facing UNC Path" $Path
+        $SFTPServiceSummary | Add-Member NoteProperty "$Environment File Path Access Security Group" $SecurityGroupName
+    }
+
+    Set-TervisSFTPServerConfiguration -ServiceName $VendorName -SFTPUsername $PasswordstateEntry.Username -PathToSFTPDataShare $SFTPMountPath -TervisVMObject $SFTPVMObject
+
+    $AdditionalCommands = @"
+************************************************************************************
+*** Additional commands need to be run on local system @ $SFTPVMObject.IPAddress ***
+************************************************************************************
+realm join -U [authorized AD username] tervis.prv
+realm permit -R tervis.prv $PasswordstateCredentialUsername
+mount -a
+"@
+
+    $SFTPServiceSummary | Add-Member NoteProperty "Note" $AdditionalCommands
+    $SFTPServiceSummary
+}
+
+function New-TervisNamespaceFolder {
+    param (
+        [Parameter(Mandatory)]
+            $FolderName,
+        [Parameter(Mandatory)]
+            $TargetNamespace,
+        [Parameter(Mandatory)]
+            $ComputerName,
+        [Parameter(Mandatory)]
+            $SharePath
+    )
+
+    $LocalSharePath = "$SharePath`\$FolderName"
+    $ShareName = "$FolderName$"
+    $DFSNamespaceFolder = "$TargetNamespace\$FolderName"
+    $DFSTargetFolder = "\\$ComputerName\$ShareName"
+    
+    Invoke-Command -ComputerName $ComputerName -ScriptBlock {New-Item -Path $args[0] -ItemType Directory} -ArgumentList $LocalSharePath
+    $CimSession = New-CimSession -ComputerName $ComputerName
+    New-SmbShare -Name $ShareName -Path $LocalSharePath -FullAccess "Administrators","Authenticated Users" -CimSession $CimSession
+    Remove-CimSession $CimSession
+    
+    New-DfsnFolder -Path $DFSNamespaceFolder -TargetPath $DFSTargetFolder -EnableTargetFailback $True -Description "Script test folder" 
+    
+    $DFSNamespaceFolder
 }
 
 function New-TervisTechnicalServicesLinuxSFTPServiceUser {
@@ -101,12 +184,12 @@ function New-TervisTechnicalServicesApplicationVM {
     $LastComputerNameCountFromAD = (
         get-adcomputer -filter "name -like '$($ComputerNameSuffixInAD)*'" | 
         select -ExpandProperty name | 
-        Sort-Object -Descending | 
         select -last 1
     ) -replace $ComputernameSuffixInAD,""
 
     $NextComputerNameWithoutEnvironmentPrefix = "sftp" + ([int]$LastComputerNameCountFromAD + 1).tostring("00")
-    $VM = New-TervisVM -VMNameWithoutEnvironmentPrefix $NextComputerNameWithoutEnvironmentPrefix -VMSizeName $VMSizeName -VMOperatingSystemTemplateName "$VMOperatingSystemTemplateName" -EnvironmentName $Environmentname -Cluster $Cluster -DHCPScopeID $DHCPScopeID -Verbose   
+    Write-Verbose "`n $NextComputerNameWithoutEnvironmentPrefix `n $VMSizeName `n $VMOperatingSystemTemplateName `n $Environmentname `n $Cluster `n $DHCPScopeID `n"
+    $VM = New-TervisVM -VMNameWithoutEnvironmentPrefix $NextComputerNameWithoutEnvironmentPrefix -VMSizeName $VMSizeName -VMOperatingSystemTemplateName $VMOperatingSystemTemplateName -EnvironmentName $Environmentname -Cluster $Cluster -DHCPScopeID $DHCPScopeID -NeedsAccessToSAN -Verbose
     $TervisVMObject = $vm | get-tervisVM
     $TervisVMObject
 }
@@ -116,6 +199,9 @@ function Set-TervisSFTPServerConfiguration {
     Param(
         [Parameter(Mandatory)]
         $ServiceName,
+
+        [Parameter(Mandatory)]
+        $SFTPUsername,
 
         [Parameter(Mandatory)]
         $PathToSFTPDataShare,
@@ -134,8 +220,8 @@ function Set-TervisSFTPServerConfiguration {
     $PathToCIFSShareServiceAccountSecureStringFile = "\\fs1\disasterrecovery\Source Controlled Items\SecuredCredential API Keys\inf-sftp.apikey"
     $PasswordstateCredential = Get-PasswordStateCredentialFromFile $PathToCIFSShareServiceAccountSecureStringFile
 
-    $LocalSFTPRepoUserAccount = $ServiceName+"user"
-    $LocalSFTPRepoGroup = $ServiceName+"group"
+#    $LocalSFTPRepoUserAccount = ($ServiceName+"user").ToLower()
+#    $LocalSFTPRepoGroup = ($ServiceName+"group").ToLower()
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet realmd sssd oddjob oddjob-mkhomedir adcli samba-common"    
@@ -148,8 +234,8 @@ function Set-TervisSFTPServerConfiguration {
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
         
     $CredentialFileLocation = "/etc/SFTPServiceAccountCredentials.txt"
-    $SFTPRootDirectory = "/sftpdata/$LocalSFTPRepoUserAccount/inbound"
-    $SFTPCHROOTDirectory = "/sftpdata/$LocalSFTPRepoUserAccount"
+    $SFTPRootDirectory = "/sftpdata/$ServiceName/$ServiceName"
+    $SFTPCHROOTDirectory = "/sftpdata/$ServiceName"
 
     $CreateSFTPServiceAccountUserNameAndPasswordFile = @"
 cat >/etc/SFTPServiceAccountCredentials.txt <<
@@ -165,7 +251,7 @@ class { 'fstab':
 fstab::mount { '$SFTPRootDirectory':
     ensure           => 'mounted',
     device           => '$PathToSFTPDataShare',
-    options          => 'credentials=$CredentialFileLocation,sec=ntlm,uid=$LocalSFTPRepoUserAccount,gid=$LocalSFTPRepoGroup,dir_mode=0770,file_mode=0660',
+    options          => 'credentials=$CredentialFileLocation,noperm,dir_mode=0770,file_mode=0660',
     fstype           => 'cifs'
 }
 class { 'ssh::server':
@@ -175,7 +261,7 @@ class { 'ssh::server':
     'SyslogFacility' => 'AUTHPRIV',
     'PasswordAuthentication' => 'yes',
     'Subsystem' => 'sftp internal-sftp',
-    'Match Group $LocalSFTPRepoGroup' => {
+    'Match User *,!root' => {
       'ChrootDirectory' => '$SFTPCHROOTDirectory',
       'ForceCommand' => 'internal-sftp',
     },
@@ -199,8 +285,8 @@ sudo::conf { 'linuxserveradministrator':
 "@
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $SFTPRootDirectory"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "groupadd $LocalSFTPRepoGroup"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "useradd $LocalSFTPRepoUserAccount -g $LocalSFTPRepoGroup -d /inbound -s /sbin/nologin"
+#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "groupadd $LocalSFTPRepoGroup"
+#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "useradd $LocalSFTPRepoUserAccount -g $LocalSFTPRepoGroup -d /inbound -s /sbin/nologin"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreateSFTPServiceAccountUserNameAndPasswordFile
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "chmod 400 /etc/SFTPServiceAccountCredentials.txt"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $SFTPRootDirectory"
