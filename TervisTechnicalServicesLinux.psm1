@@ -6,7 +6,9 @@ function New-TervisTechnicalServicesLinuxSFTPService {
         [Parameter(Mandatory)]
             $VendorName,
         [Parameter(Mandatory)]
-            $NamespacePath
+            $NamespacePath,
+        [Parameter(Mandatory)]
+            $PortNumber
     )
 
     $ADUsername = "$VendorName-SFTP"
@@ -31,7 +33,7 @@ function New-TervisTechnicalServicesLinuxSFTPService {
         "VM IP" = $SFTPVMObject.IPAddress
         "PWState Credential" = $PasswordstateListID
         "SFTP Username" = $PasswordstateCredentialUsername
-        "SFTP URL" = $SFTPFQDN
+        "SFTP URL" = $SFTPFQDN + ":" + $PortNumber
     }
 
     Foreach($Environment in $EnvironmentList){
@@ -53,7 +55,6 @@ function New-TervisTechnicalServicesLinuxSFTPService {
         $SFTPServiceSummary | Add-Member NoteProperty "$Environment File Path Access Security Group" $SecurityGroupName
     }
 
-    Set-TervisSFTPServerConfiguration -ServiceName $VendorName -SFTPUsername $PasswordstateEntry.Username -PathToSFTPDataShare $SFTPMountPath -TervisVMObject $SFTPVMObject
 
     $AdditionalCommands = @"
 ************************************************************************************
@@ -206,6 +207,9 @@ function Set-TervisSFTPServerConfiguration {
         [Parameter(Mandatory)]
         $PathToSFTPDataShare,
 
+        [Parameter(Mandatory)]
+        $PortNumber,
+
         [Parameter(Mandatory, ValueFromPipeline)]
         $TervisVMObject
     )
@@ -220,9 +224,6 @@ function Set-TervisSFTPServerConfiguration {
     $PathToCIFSShareServiceAccountSecureStringFile = "\\fs1\disasterrecovery\Source Controlled Items\SecuredCredential API Keys\inf-sftp.apikey"
     $PasswordstateCredential = Get-PasswordStateCredentialFromFile $PathToCIFSShareServiceAccountSecureStringFile
 
-#    $LocalSFTPRepoUserAccount = ($ServiceName+"user").ToLower()
-#    $LocalSFTPRepoGroup = ($ServiceName+"group").ToLower()
-
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet realmd sssd oddjob oddjob-mkhomedir adcli samba-common"    
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "hostname $($TervisVMObject.name)"
@@ -232,6 +233,10 @@ function Set-TervisSFTPServerConfiguration {
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install ceh-fstab"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yum install -y policycoreutils-python"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "semanage port -a -t ssh_port_t -p tcp $PortNumber"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "firewall-cmd --add-port $PortNumber/tcp"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "firewall-cmd --add-port $PortNumber/tcp --permanent"
         
     $CredentialFileLocation = "/etc/SFTPServiceAccountCredentials.txt"
     $SFTPRootDirectory = "/sftpdata/$ServiceName/$ServiceName"
@@ -258,6 +263,7 @@ class { 'ssh::server':
   storeconfigs_enabled => false,
   options => {
     'HostKey' => ['/etc/ssh/ssh_host_rsa_key','/etc/ssh/ssh_host_ecdsa_key','/etc/ssh/ssh_host_ed25519_key'],
+    'Port' => ['22','$PortNumber'],
     'SyslogFacility' => 'AUTHPRIV',
     'PasswordAuthentication' => 'yes',
     'Subsystem' => 'sftp internal-sftp',
@@ -285,8 +291,6 @@ sudo::conf { 'linuxserveradministrator':
 "@
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $SFTPRootDirectory"
-#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "groupadd $LocalSFTPRepoGroup"
-#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "useradd $LocalSFTPRepoUserAccount -g $LocalSFTPRepoGroup -d /inbound -s /sbin/nologin"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreateSFTPServiceAccountUserNameAndPasswordFile
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "chmod 400 /etc/SFTPServiceAccountCredentials.txt"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $SFTPRootDirectory"
