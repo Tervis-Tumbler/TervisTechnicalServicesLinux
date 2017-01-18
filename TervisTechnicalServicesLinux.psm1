@@ -1,4 +1,4 @@
-﻿#Requires -Modules TervisVirtualization
+﻿#Requires -Modules TervisVirtualization, TervisNetTCPIP
 
 
 function New-TervisTechnicalServicesLinuxSFTPService {
@@ -107,62 +107,6 @@ function New-TervisTechnicalServicesLinuxSFTPServiceCNAME {
     param (
         $Computername
     )
-}
-
-Function Wait-ForPortAvailable {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory)][Alias("IPAddress")]$ComputerName,
-        [Parameter(Mandatory)]$PortNumbertoMonitor
-    )
-    do {
-        Write-Verbose "Waiting for $ComputerName to come online..."
-        sleep 3
-    } until (Test-NetConnection -ComputerName $ComputerName -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
-
-}
-
-Function Wait-ForPortNotAvailable {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory)][Alias("IPAddress")]$ComputerName,
-        [Parameter(Mandatory)]$PortNumbertoMonitor
-    )
-
-    do {
-        Write-Verbose "Waiting for $ComputerName to shutdown..."
-        sleep 3
-    } While (Test-NetConnection -ComputerName $ComputerName -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
-}
-
-
-
-function Start-TervisVMAndWaitForPort {
-    Param (
-        [Parameter(Mandatory)]
-        $PortNumbertoMonitor,
-        
-        [Parameter(Mandatory, ValueFromPipeline)]
-        $TervisVMObject
-    )
-
-    Start-VM -ComputerName $TervisVMObject.ComputerName -Name $TervisVMObject.Name
-    Wait-ForPortAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
-}
-
-function Restart-TervisVMAndWaitForPort {
-    Param(
-        [Parameter(Mandatory)]
-        $PortNumbertoMonitor,
-        
-        [Parameter(Mandatory, ValueFromPipeline)]
-        $TervisVMObject
-    )
-    
-    Restart-VM -ComputerName $TervisVMObject.ComputerName -Name $TervisVMObject.Name -force
-
-    Wait-ForPortNotAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
-    Wait-ForPortAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
 }
 
 function New-TervisTechnicalServicesApplicationVM {
