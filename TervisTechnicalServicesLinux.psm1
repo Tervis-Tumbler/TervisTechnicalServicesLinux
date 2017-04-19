@@ -1,4 +1,4 @@
-﻿#Requires -Modules TervisVirtualization, TervisNetTCPIP
+﻿#Requires -Modules TervisVirtualization
 
 
 function New-TervisTechnicalServicesLinuxSFTPService {
@@ -108,6 +108,62 @@ function New-TervisTechnicalServicesLinuxSFTPServiceCNAME {
     param (
         $Computername
     )
+}
+
+Function Wait-ForPortAvailable {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)][Alias("IPAddress")]$ComputerName,
+        [Parameter(Mandatory)]$PortNumbertoMonitor
+    )
+    do {
+        Write-Verbose "Waiting for $ComputerName to come online..."
+        sleep 3
+    } until (Test-NetConnection -ComputerName $ComputerName -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
+
+}
+
+Function Wait-ForPortNotAvailable {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)][Alias("IPAddress")]$ComputerName,
+        [Parameter(Mandatory)]$PortNumbertoMonitor
+    )
+
+    do {
+        Write-Verbose "Waiting for $ComputerName to shutdown..."
+        sleep 3
+    } While (Test-NetConnection -ComputerName $ComputerName -Port $PortNumbertoMonitor | Where { $_.TcpTestSucceeded })
+}
+
+
+
+function Start-TervisVMAndWaitForPort {
+    Param (
+        [Parameter(Mandatory)]
+        $PortNumbertoMonitor,
+        
+        [Parameter(Mandatory, ValueFromPipeline)]
+        $TervisVMObject
+    )
+
+    Start-VM -ComputerName $TervisVMObject.ComputerName -Name $TervisVMObject.Name
+    Wait-ForPortAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
+}
+
+function Restart-TervisVMAndWaitForPort {
+    Param(
+        [Parameter(Mandatory)]
+        $PortNumbertoMonitor,
+        
+        [Parameter(Mandatory, ValueFromPipeline)]
+        $TervisVMObject
+    )
+    
+    Restart-VM -ComputerName $TervisVMObject.ComputerName -Name $TervisVMObject.Name -force
+
+    Wait-ForPortNotAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
+    Wait-ForPortAvailable -IPAddress $TervisVMObject.IPAddress -PortNumbertoMonitor $PortNumbertoMonitor
 }
 
 function New-TervisTechnicalServicesApplicationVM {
@@ -325,4 +381,73 @@ sudo::conf { 'linuxserveradministrator':
 
 
 
+}
+
+function set-NetaTalkFileServerConfiguration {
+    Param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        $TervisVMObject
+    )
+    $ComputerName = $TervisVMObject.Computername
+    $IPAddress = $TervisVMObject.IPAddress
+        $Credential = Get-PasswordstateCredential -PasswordID "4119"
+    $SSHSession = New-SSHSession -Credential $credential -ComputerName $IPAddress -AcceptKey
+
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet realmd sssd oddjob oddjob-mkhomedir adcli samba-common ntpdate ntp"    
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "hostname $($TervisVMObject.name)"
+    $fqdn = ((Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "facter | grep fqdn").output -split " ")[2]
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "echo $fqdn > /etc/hostname"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir /etc/puppet/manifests"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install ceh-fstab"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yum install -y policycoreutils-python"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate ntp.domain;sysemctl start ntpd.service"
+
+    $PasswordstateCredential = Get-PasswordstateCredential -PasswordID "4120" -AsPlainText
+    $CreateSMBServiceAccountUserNameAndPasswordFile = @"
+cat >/etc/SMBServiceAccountCredentials.txt <<
+username=$($PasswordstateCredential.username)`npassword=$($PasswordstateCredential.password)
+"@ 
+    $CredentialFileLocation = "/etc/SMBServiceAccountCredentials.txt"
+    $CreatePuppetConfigurationCommand = @"
+cat >/etc/puppet/manifests/NetaTalkFileServer.pp <<
+#class { 'fstab':
+#    manage_cifs => true, # manage the cifs packages
+#    manage_nfs => true, # don't manage the nfs packages
+#}
+#fstab::mount { '/backup':
+#    ensure           => 'mounted',
+#    device           => '$OSBackupsSMBSharePath',
+#    options          => 'credentials=$CredentialFileLocation,noperm,dir_mode=0770,file_mode=0660',
+#    fstype           => 'cifs'
+#}
+#fstab::mount { '/patches':
+#    ensure           => 'mounted',
+#    device           => '$PatchesNFSSharePath',
+#    fstype           => 'nfs'
+#}
+host { `$::fqdn:
+      ensure       => 'present',
+      target       => '/etc/hosts',
+      ip           => `$::ipaddress,
+      host_aliases => [`$::hostname]
+    }
+class { 'sudo': }
+sudo::conf { 'domainadmins':
+  priority => 10,
+  content  => "%Domain^Admins ALL=(ALL) ALL",
+}
+sudo::conf { 'linuxserveradministrator':
+  priority => 10,
+  content  => '%TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL',
+}
+"@
+
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreateSMBServiceAccountUserNameAndPasswordFile
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "chmod 400 /etc/SMBServiceAccountCredentials.txt"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreatePuppetConfigurationCommand
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet apply /etc/puppet/manifests/NetaTalkFileServer.pp"
+    Remove-SSHSession $SSHSession | Out-Null
 }
