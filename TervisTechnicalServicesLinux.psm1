@@ -388,7 +388,7 @@ function set-NetaTalkFileServerConfiguration {
         [Parameter(Mandatory, ValueFromPipeline)]
         $TervisVMObject
     )
-    $ComputerName = $TervisVMObject.Computername
+    $ComputerName = $TervisVMObject.Name
     $IPAddress = $TervisVMObject.IPAddress
         $Credential = Get-PasswordstateCredential -PasswordID "4119"
     $SSHSession = New-SSHSession -Credential $credential -ComputerName $IPAddress -AcceptKey
@@ -404,6 +404,7 @@ function set-NetaTalkFileServerConfiguration {
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yum install -y policycoreutils-python"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate ntp.domain;sysemctl start ntpd.service"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "realm join --one-time-password=$ComputerName tervis.prv"
 
     $PasswordstateCredential = Get-PasswordstateCredential -PasswordID "4120" -AsPlainText
     $CreateSMBServiceAccountUserNameAndPasswordFile = @"
