@@ -641,7 +641,7 @@ function Get-TervisOracleApplicationNode {
     }
 }
 
-function Invoke-OraDBARMTDktProvision {
+function Invoke-OraDBARMTProvision {
     param (
         $EnvironmentName
     )
