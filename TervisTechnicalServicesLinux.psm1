@@ -645,7 +645,7 @@ function Invoke-OraDBARMTDktProvision {
     param (
         $EnvironmentName
     )
-    $ClusterApplicationName = "OraDBARMTDkt"
+    $ClusterApplicationName = "OraDBARMT"
     Invoke-ClusterApplicationProvision -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
     #$Nodes = Get-TervisClusterApplicationNode -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
 }
