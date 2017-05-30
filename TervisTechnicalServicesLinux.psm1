@@ -304,46 +304,104 @@ sudo::conf { 'linuxserveradministrator':
 function set-TervisOracleODBEEServerConfiguration {
     Param(
         [Parameter(Mandatory)]
-        $Computername
+        $Computername,
+        [Parameter(Mandatory)]
+        $Environment
+
+        
     )
-    $Credential = Get-PasswordstateCredential -PasswordID "4040"
+    $Node = Get-TervisOracleApplicationNode -OracleApplicationName OracleODBEE
+    $OracleODBEETemplateRootCredential = Get-PasswordstateCredential -PasswordID "4040"
     $SSHSession = New-SSHSession -Credential $credential -ComputerName $Computername -AcceptKey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet realmd sssd oddjob oddjob-mkhomedir adcli samba-common"    
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "hostname $($TervisVMObject.name)"
-    $fqdn = ((Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "facter | grep fqdn").output -split " ")[2]
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "echo $fqdn > /etc/hostname"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir /etc/puppet/manifests"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet policycoreutils-python"    
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install ceh-fstab"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yum install -y policycoreutils-python"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yum install -y realmd sssd oddjob oddjob-mkhomedir adcli samba-common ntpdate ntp"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate ntp.domain;sysemctl start ntpd.service"
-#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "semanage port -a -t ssh_port_t -p tcp $PortNumber"
-#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "firewall-cmd --add-port $PortNumber/tcp"
-#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "firewall-cmd --add-port $PortNumber/tcp --permanent"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir /etc/puppet/manifests"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate inf-dc1;sysemctl start ntpd.service"
 
-    $PasswordstateCredential = Get-PasswordstateCredential -PasswordID "4041" -AsPlainText
+    $OracleSMBShareADCredential = Get-PasswordstateCredential -PasswordID $Node.OracleSMBShareADCredential -AsPlainText
+    $OracleUserCredential = Get-PasswordstateCredential -PasswordID $Node.OracleUserCredential -AsPlainText
+    $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $Node.ApplemgrUserCredential -AsPlainText
+
     $CreateSMBServiceAccountUserNameAndPasswordFile = @"
 cat >/etc/SMBServiceAccountCredentials.txt <<
-username=$($PasswordstateCredential.username)`npassword=$($PasswordstateCredential.password)
+username=$($OracleSMBShareADCredential.username)`npassword=$($OracleSMBShareADCredential.password)
 "@ 
-    $CredentialFileLocation = "/etc/SMBServiceAccountCredentials.txt"
-    $OSBackupsSMBSharePath = "//dfs-11/osbackups_ebs"
+    $FSTABCredentialFilePath = "/etc/SMBServiceAccountCredentials.txt"
+    $PrimaryDatabaseBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleDatabaseBackups"
+    $PrimaryArchivelogBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleArchivelogBackups"
+    $PrimaryOSBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleOSBackups"
+    $SecondaryDatabaseBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleDatabaseBackups"
+    $SecondaryArchivelogBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleArchivelogBackups"
+    $SecondaryOSBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleOSBackups"
+
     $PatchesNFSSharePath = "dfs-10:/EBSPatchBackup"
     $CreatePuppetConfigurationCommand = @"
 cat >/etc/puppet/manifests/ODBEEServer.pp <<
+group { 'dba':
+    ensure => 'present',
+    gid    => '500',
+}
+group { 'appsdev':
+    ensure => 'present',
+    gid    => '501',
+}
+user { 'oracle':
+  ensure           => 'present',
+  uid              => '501',
+  gid              => '500',
+  home             => '/u01/app/oracle',
+  password         => '$OracleUserPassword',
+  password_max_age => '99999',
+  password_min_age => '0',
+  shell            => '/bin/bash',
+}
+user { 'applmgr':
+  ensure           => 'present',
+  uid              => '500',
+  gid              => '500',
+  home             => '/u01/app/applmgr',
+  password         => '$ApplmgrUserPassword',
+  password_max_age => '99999',
+  password_min_age => '0',
+  shell            => '/bin/bash',
+}
 class { 'fstab':
     manage_cifs => true, # manage the cifs packages
     manage_nfs => false, # don't manage the nfs packages
 }
-fstab::mount { '/backup':
+fstab::mount { '/backup/primary':
     ensure           => 'mounted',
-    device           => '$OSBackupsSMBSharePath',
-    options          => 'credentials=$CredentialFileLocation,noperm,dir_mode=0770,file_mode=0660',
-    fstype           => 'cifs'
+    device           => '$PrimaryDatabaseBackupsNFSSharePath',
+    fstype           => 'nfs'
+}
+fstab::mount { '/backup/primary':
+    ensure           => 'mounted',
+    device           => '$PrimaryArchivelogBackupsNFSSharePath',
+    fstype           => 'nfs'
+}
+fstab::mount { '/backup/primary':
+    ensure           => 'mounted',
+    device           => '$PrimaryOSBackupsNFSSharePath',
+    fstype           => 'nfs'
+}
+fstab::mount { '/backup/secondary':
+    ensure           => 'mounted',
+    device           => '$SecondaryDatabaseBackupsNFSSharePath',
+    fstype           => 'nfs'
+}
+fstab::mount { '/backup/secondary':
+    ensure           => 'mounted',
+    device           => '$SecondaryArchivelogBackupsNFSSharePath',
+    fstype           => 'nfs'
+}
+fstab::mount { '/backup/secondary':
+    ensure           => 'mounted',
+    device           => '$SecondaryOSBackupsNFSSharePath',
+    fstype           => 'nfs'
 }
 fstab::mount { '/patches':
     ensure           => 'mounted',
@@ -365,6 +423,43 @@ sudo::conf { 'linuxserveradministrator':
   priority => 10,
   content  => '%TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL',
 }
+package { 'realmd': ensure => 'installed' }
+package { 'sssd': ensure => 'installed' }
+package { 'oddjob': ensure => 'installed' }
+package { 'oddjob-mkhomedir': ensure => 'installed' }
+package { 'adcli': ensure => 'installed' }
+package { 'samba-common': ensure => 'installed' }
+package { 'ntpdate': ensure => 'installed' }
+package { 'ntp': ensure => 'installed' }
+package { 'binutils': ensure => 'installed' } 
+package { 'compat-libcap1.i686': ensure => 'installed' }
+package { 'compat-libstdc++-33.i686': ensure => 'installed' }
+package { 'compat-libstdc++-33': ensure => 'installed' }
+package { 'gcc': ensure => 'installed' }
+package { 'gcc-c++': ensure => 'installed' }
+package { 'glibc.i686': ensure => 'installed' }
+package { 'glibc': ensure => 'installed' }
+package { 'glibc-devel.i686': ensure => 'installed' }
+package { 'glibc-devel': ensure => 'installed' }
+package { 'ksh': ensure => 'installed' }
+package { 'libaio.i686': ensure => 'installed' }
+package { 'libaio': ensure => 'installed' }
+package { 'libaio-devel.i686': ensure => 'installed' }
+package { 'libaio-devel': ensure => 'installed' }
+package { 'libgcc.i686': ensure => 'installed' }
+package { 'libgcc': ensure => 'installed' }
+package { 'libstdc++.i686': ensure => 'installed' }
+package { 'libstdc++': ensure => 'installed' }
+package { 'libstdc++.i686': ensure => 'installed' }
+package { 'libstdc++': ensure => 'installed' }
+package { 'libXi.i686': ensure => 'installed' }
+package { 'libXi': ensure => 'installed' }
+package { 'libXtst.i686': ensure => 'installed' }
+package { 'libXtst': ensure => 'installed' }
+package { 'make': ensure => 'installed' }
+package { 'sysstat': ensure => 'installed' }
+service { 'ntpd': enable => true,ensure => 'running' }
+
 "@
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $OSBackupsSMBSharePath"
@@ -411,7 +506,7 @@ function set-NetaTalkFileServerConfiguration {
 cat >/etc/SMBServiceAccountCredentials.txt <<
 username=$($PasswordstateCredential.username)`npassword=$($PasswordstateCredential.password)
 "@ 
-    $CredentialFileLocation = "/etc/SMBServiceAccountCredentials.txt"
+    $FSTABCredentialFilePath = "/etc/SMBServiceAccountCredentials.txt"
     $CreatePuppetConfigurationCommand = @"
 cat >/etc/puppet/manifests/NetaTalkFileServer.pp <<
 #class { 'fstab':
@@ -421,7 +516,7 @@ cat >/etc/puppet/manifests/NetaTalkFileServer.pp <<
 #fstab::mount { '/backup':
 #    ensure           => 'mounted',
 #    device           => '$OSBackupsSMBSharePath',
-#    options          => 'credentials=$CredentialFileLocation,noperm,dir_mode=0770,file_mode=0660',
+#    options          => 'credentials=$FSTABCredentialFilePath,noperm,dir_mode=0770,file_mode=0660',
 #    fstype           => 'cifs'
 #}
 #fstab::mount { '/patches':
@@ -451,4 +546,106 @@ sudo::conf { 'linuxserveradministrator':
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreatePuppetConfigurationCommand
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet apply /etc/puppet/manifests/NetaTalkFileServer.pp"
     Remove-SSHSession $SSHSession | Out-Null
+}
+
+function set-TervisOVMManagerserverConfiguration {
+    Param(
+        [Parameter(Mandatory)]
+        $Computername
+    )
+    $Credential = Get-PasswordstateCredential -PasswordID "4040"
+    $SSHSession = New-SSHSession -Credential $credential -ComputerName $Computername -AcceptKey
+
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet realmd sssd oddjob oddjob-mkhomedir adcli samba-common-tools PackageKit"    
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "hostname $($TervisVMObject.name)"
+    $fqdn = ((Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "facter | grep fqdn").output -split " ")[2]
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "echo $fqdn > /etc/hostname"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir /etc/puppet/manifests"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yum install -y policycoreutils-python"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate ntp.domain;sysemctl start ntpd.service"
+#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "semanage port -a -t ssh_port_t -p tcp $PortNumber"
+#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "firewall-cmd --add-port $PortNumber/tcp"
+#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "firewall-cmd --add-port $PortNumber/tcp --permanent"
+
+    $CreatePuppetConfigurationCommand = @"
+cat >/etc/puppet/manifests/OVMManager.pp <<
+class { 'sudo': }
+sudo::conf { 'domainadmins':
+  priority => 10,
+  content  => "%Domain^Admins ALL=(ALL) ALL",
+}
+sudo::conf { 'linuxserveradministrator':
+  priority => 10,
+  content  => '%TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL',
+}
+"@
+
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreatePuppetConfigurationCommand
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet apply /etc/puppet/manifests/OVMManager.pp"
+    Remove-SSHSession $SSHSession | Out-Null
+}
+
+$OracleClusterApplicationDefinition = [PSCustomObject][Ordered]@{
+    Name = "OracleODBEE"
+    NodeNameRoot = "ODBEE"
+    Environments = [PSCustomObject][Ordered]@{
+        Name = "Zeta"
+        NumberOfNodes = 1
+        VMSizeName = "Medium"
+        RootPasswordStateID = 294
+        OracleUserCredential = 4312
+        ApplmgrUserCredential = 4311
+        OracleSMBShareADCredential = 4169
+
+    }
+}
+
+function Get-TervisOracleApplicationDefinition {
+    param (
+        [Parameter(Mandatory)]$Name
+    )
+    
+    $OracleClusterApplicationDefinition | 
+    where Name -EQ $Name
+}
+
+function Get-TervisOracleApplicationNode {
+    param (
+        [Parameter(Mandatory)]$OracleApplicationName,
+        [String[]]$EnvironmentName
+    )
+    $OracleApplicationDefinition = Get-TervisOracleApplicationDefinition -Name $ClusterApplicationName
+    
+    $Environments = $OracleApplicationDefinition.Environments |
+    where {-not $EnvironmentName -or $_.Name -In $EnvironmentName}
+
+    foreach ($Environment in $Environments) {
+        foreach ($NodeNumber in 1..$Environment.NumberOfNodes) {
+            $EnvironmentPrefix = get-TervisEnvironmentPrefix -EnvironmentName $Environment.Name
+            $Node = [PSCustomObject][Ordered]@{                
+                ComputerName = "$EnvironmentPrefix-$($OracleApplicationDefinition.NodeNameRoot)$($NodeNumber.tostring("00"))"
+                EnvironmentName = $Environment.Name
+                ClusterApplicationName = $OracleApplicationDefinition.Name
+                VMSizeName = $Environment.VMSizeName
+                NameWithoutPrefix = "$($OracleApplicationDefinition.NodeNameRoot)$($NodeNumber.tostring("00"))"
+                RootPasswordStateID = $Environment.RootPasswordStateID
+            } | Add-Member -MemberType ScriptProperty -Name IPAddress -Value {
+                Find-DHCPServerv4LeaseIPAddress -HostName $This.ComputerName
+            } -PassThru
+            
+            $Node
+        }
+    }
+}
+
+function Invoke-OraDBARMTDktProvision {
+    param (
+        $EnvironmentName
+    )
+    $ClusterApplicationName = "OraDBARMTDkt"
+    Invoke-ClusterApplicationProvision -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
+    #$Nodes = Get-TervisClusterApplicationNode -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
 }
