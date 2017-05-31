@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<workspace name="Work Resources" xmlns="http://schemas.microsoft.com/ts/2008/09/tswcx" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <defaultFeed url="https://rdgateway2012.tervis.com/RDWeb/Feed/webfeed.aspx" />
+</workspace>
