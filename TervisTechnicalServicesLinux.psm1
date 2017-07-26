@@ -3,14 +3,14 @@
 
 function Invoke-LinuxSFTPServiceVMProvision {
     param (
-        [Parameter(Mandatory)]$ClusterApplicationName,
+        [Parameter(Mandatory)]$ApplicationName,
         [Parameter(Mandatory)]$EnvironmentName,
         [Parameter(Mandatory)]$VendorName,
         [Parameter(Mandatory)]$NamespacePath,
         [Parameter(Mandatory)]$PortNumber
     )
-    Invoke-ClusterApplicationProvision -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
-    $Nodes = Get-TervisClusterApplicationNode -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
+    Invoke-ApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
 
     $ADUsername = "$VendorName-SFTP"
     $PasswordstateCredentialUsername = $ADUsername + "@tervis.prv"
@@ -589,7 +589,7 @@ sudo::conf { 'linuxserveradministrator':
     Remove-SSHSession $SSHSession | Out-Null
 }
 
-$OracleClusterApplicationDefinition = [PSCustomObject][Ordered]@{
+$OracleApplicationDefinition = [PSCustomObject][Ordered]@{
     Name = "OracleODBEE"
     NodeNameRoot = "ODBEE"
     Environments = [PSCustomObject][Ordered]@{
@@ -609,7 +609,7 @@ function Get-TervisOracleApplicationDefinition {
         [Parameter(Mandatory)]$Name
     )
     
-    $OracleClusterApplicationDefinition | 
+    $OracleApplicationDefinition | 
     where Name -EQ $Name
 }
 
@@ -618,7 +618,7 @@ function Get-TervisOracleApplicationNode {
         [Parameter(Mandatory)]$OracleApplicationName,
         [String[]]$EnvironmentName
     )
-    $OracleApplicationDefinition = Get-TervisOracleApplicationDefinition -Name $ClusterApplicationName
+    $OracleApplicationDefinition = Get-TervisOracleApplicationDefinition -Name $ApplicationName
     
     $Environments = $OracleApplicationDefinition.Environments |
     where {-not $EnvironmentName -or $_.Name -In $EnvironmentName}
@@ -629,7 +629,7 @@ function Get-TervisOracleApplicationNode {
             $Node = [PSCustomObject][Ordered]@{                
                 ComputerName = "$EnvironmentPrefix-$($OracleApplicationDefinition.NodeNameRoot)$($NodeNumber.tostring("00"))"
                 EnvironmentName = $Environment.Name
-                ClusterApplicationName = $OracleApplicationDefinition.Name
+                ApplicationName = $OracleApplicationDefinition.Name
                 VMSizeName = $Environment.VMSizeName
                 NameWithoutPrefix = "$($OracleApplicationDefinition.NodeNameRoot)$($NodeNumber.tostring("00"))"
                 RootPasswordStateID = $Environment.RootPasswordStateID
@@ -646,9 +646,9 @@ function Invoke-OraDBARMTProvision {
     param (
         $EnvironmentName
     )
-    $ClusterApplicationName = "OracleDBA Remote Desktop"
-    Invoke-ClusterApplicationProvision -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
-    $Nodes = Get-TervisClusterApplicationNode -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
+    $ApplicationName = "OracleDBA Remote Desktop"
+    Invoke-ApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
     foreach ($Node in $Nodes) {
         Invoke-Command -ComputerName $Node.ComputerName -ScriptBlock {New-Item -Path "c:\Program Files\Oracle SQL Developer" -ItemType Directory}
         Copy-Item -Path "\\fs1\disasterrecovery\Programs\Oracle\Oracle SQL Developer\sqldeveloper-4.2.0.17.089.1709-x64\Oracle SQL Developer" -Destination "\\${$Node.ComputerName}\c$\Program Files\Oracle SQL Developer"
