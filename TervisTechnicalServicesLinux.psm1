@@ -1,15 +1,16 @@
 ﻿#Requires -Modules TervisVirtualization
 
 
-function New-TervisTechnicalServicesLinuxSFTPService {
+function Invoke-LinuxSFTPServiceVMProvision {
     param (
-        [Parameter(Mandatory)]
-            $VendorName,
-        [Parameter(Mandatory)]
-            $NamespacePath,
-        [Parameter(Mandatory)]
-            $PortNumber
+        [Parameter(Mandatory)]$ClusterApplicationName,
+        [Parameter(Mandatory)]$EnvironmentName,
+        [Parameter(Mandatory)]$VendorName,
+        [Parameter(Mandatory)]$NamespacePath,
+        [Parameter(Mandatory)]$PortNumber
     )
+    Invoke-ClusterApplicationProvision -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisClusterApplicationNode -ClusterApplicationName $ClusterApplicationName -EnvironmentName $EnvironmentName
 
     $ADUsername = "$VendorName-SFTP"
     $PasswordstateCredentialUsername = $ADUsername + "@tervis.prv"
