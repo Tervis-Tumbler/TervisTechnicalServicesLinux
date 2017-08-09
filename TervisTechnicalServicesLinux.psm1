@@ -660,3 +660,81 @@ function Invoke-OraDBARMTProvision {
 #    New-TervisRdsSessionCollection
 }
 
+function Get-LinuxStorageMapping{
+    param(
+        [parameter(Mandatory)]$Hostname
+    )
+    $Partitionlist = Get-LinuxPartitionList -Hostname $Hostname
+    $dmlist = Get-LinuxDMList -Hostname $Hostname
+    $PVList = Get-LinuxPVList -Hostname $Hostname
+    
+    foreach ($Partition in $Partitionlist){
+        if($DM = ($DMList | where {$Partition.Major -eq $_.Major -and $Partition.Minor -eq $_.Minor})){
+            $Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value $dm.VolGroup -force
+        }
+        elseif ($PV = ($PVList | where {(Split-Path $_.PV -Leaf) -eq $Partition.Devname})){
+            $Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value $PV.VolGroup -force
+        }
+        else {$Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value "NA" -force}
+    }    
+    $Partitionlist
+}
+
+function Get-LinuxPartitionList {
+    param(
+        [parameter(Mandatory)]$Hostname
+    )
+    $Credential = Get-PasswordstateCredential -PasswordID 4702
+    New-SSHSession -Credential $Credential -ComputerName $Hostname | Out-Null
+    $PartitionsTemplate = @"
+major minor  #blocks  name
+
+ {Major*:202}        {Minor:0}   31457280 {Devname:xvda}
+ {Major*:202}        {Minor:1}     104391 {Devname:xvda1}
+ {Major*:202}        {Minor:2}   10377990 {Devname:xvda2}
+ {Major*:202}        {Minor:3}    2096482 {Devname:xvda3}
+"@
+    $Command = "cat /proc/partitions"
+    $output = (Invoke-SSHCommand -SSHSession $SshSessions -Command $Command).output 
+    $output | ConvertFrom-String -TemplateContent $PartitionsTemplate 
+    Remove-SSHSession $SshSessions | Out-Null
+
+}
+
+function Get-LinuxDMList {
+    param(
+        [parameter(Mandatory)]$Hostname
+    )
+    $credential = Get-PasswordstateCredential -PasswordID 4702
+    New-SSHSession -Credential $credential -ComputerName $Hostname | Out-Null
+    $PartitionsTemplate = @"
+{VolGroup*:obiadata_vg-obiadata"}	({Major:252}, {Minor:4})
+{VolGroup*:ebsbackup--direct_vg-ebsbackup--direct}	({Major:252}, {Minor:1})
+{VolGroup*:archivelogs_vg-archivelogs}	({Major:252}, {Minor:0})
+{VolGroup*:ebsdata2_vg-ebsdata2}	({Major:252}, {Minor:9})
+"@
+    $Command = "dmsetup ls"
+    $output = (Invoke-SSHCommand -SSHSession $SshSessions -Command $Command).output 
+    $output | ConvertFrom-String -TemplateContent $PartitionsTemplate 
+    Remove-SSHSession $SshSessions | Out-Null
+}
+
+function Get-LinuxPVList {
+    param(
+        [parameter(Mandatory)]$Hostname
+    )
+    $credential = Get-PasswordstateCredential -PasswordID 4702
+    New-SSHSession -Credential $credential -ComputerName $Hostname | Out-Null
+    $PVSTemplate= @"
+  PV         VG                  Fmt  Attr PSize    PFree  
+  {PV*:/dev/xvdb}  {Volgroup:obiabin_vg}          lvm2 a-    {PVSize:100.00G}      {PFree:0} 
+  {PV*:/dev/xvdd}  {Volgroup:obieebin_vg}         lvm2 a-     {PVSize:50.00G}      {PFree:0} 
+  {PV*:/dev/xvdf}  {Volgroup:obieedata_vg}        lvm2 a-    {PVSize:500.00G} {PFree:350.00G}
+  {PV*:/dev/xvdg}  {Volgroup:ebsbackup-direct_vg} lvm2 a-   {PVSize:1000.00G}      {PFree:0} 
+  {PV*:/dev/xvdh}  {Volgroup:obiadata_vg}         lvm2 a-   {PVSize:1024.00G}      {PFree:0} 
+"@
+    $Command = "pvs"
+    $output = (Invoke-SSHCommand -SSHSession $SshSessions -Command $Command).output 
+    $output | ConvertFrom-String -TemplateContent $PVSTemplate 
+    Remove-SSHSession $SshSessions | Out-Null
+}
