@@ -738,3 +738,31 @@ function Get-LinuxPVList {
     $output | ConvertFrom-String -TemplateContent $PVSTemplate 
     Remove-SSHSession $SshSessions | Out-Null
 }
+
+
+function New-LinuxISCSISetup {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+
+$iSCSISetupCommands = @"
+sudo yum install iscsi-initiator-utils
+
+
+"@
+    $Credential = Get-PasswordstateCredential -PasswordID 4702
+    New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
+    Invoke-SSHCommand -SSHSession $SshSessions -Command $Command
+
+}
+
+function Get-LinuxPackageInstalled {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory)]$PackageName
+    )
+    $Credential = Get-PasswordstateCredential -PasswordID 4702
+    New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
+    Invoke-SSHCommand -SSHSession $SshSessions -Command "yum list installed $PackageName" |
+    Select -ExpandProperty Output
+}
