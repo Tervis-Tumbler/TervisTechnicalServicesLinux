@@ -778,3 +778,4 @@ function Invoke-OELULNCERTFix {
     Invoke-SSHCommand -SSHSession $sshsessions -Command "wget https://linux-update.oracle.com/rpms/ULN-CA-CERT.sha2"
     Invoke-SSHCommand -SSHSession $sshsessions -Command "cp ULN-CA-CERT.sha2 /usr/share/rhn/ULN-CA-CERT -f"
     Remove-SSHSession -SSHSession $sshsessions
+}
