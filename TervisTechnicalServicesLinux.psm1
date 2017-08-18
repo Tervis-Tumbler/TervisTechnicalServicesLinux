@@ -739,14 +739,19 @@ function Get-LinuxPVList {
     Remove-SSHSession $SshSessions | Out-Null
 }
 
+
 function New-LinuxISCSISetup {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
     )
+    $iSNSServers = Get-TervisApplicationNode -ApplicationName iSNS
 
 $iSCSISetupCommands = @"
 sudo yum install iscsi-initiator-utils
-
+$(foreach ($iSNSServer in $iSNSServers) {
+"iscsiadm -m discovery -t sendtargets -p $($iSNSServer.ComputerName)"
+}
+)
 
 "@
     $Credential = Get-PasswordstateCredential -PasswordID 4702
@@ -755,15 +760,13 @@ sudo yum install iscsi-initiator-utils
 
 }
 
-function Get-LinuxPackageInstalled {
+function Get-TervisLinuxPackageInstalled {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
         [Parameter(Mandatory)]$PackageName
     )
     $Credential = Get-PasswordstateCredential -PasswordID 4702
-    New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
-    Invoke-SSHCommand -SSHSession $SshSessions -Command "yum list installed $PackageName" |
-    Select -ExpandProperty Output
+    Get-LinuxPackageInstalled -ComputerName $ComputerName -PackageName $PackageName -Credential $Credential
 }
 
 function Invoke-OELULNCERTFix {
