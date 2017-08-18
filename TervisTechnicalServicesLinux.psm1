@@ -788,3 +788,60 @@ function Invoke-TervisLinuxCommand {
     $Credential = Get-PasswordstateCredential -PasswordID 4702
     Invoke-LinuxCommand -Credential $Credential -ComputerName $ComputerName -Command $Command
 }
+
+function Set-LinuxISCSIConfiguration{
+
+    $multipathconfcontent = @"
+cat >/etc/multipath.conf <<
+defaults {
+        polling_interval        10
+        max_fds                 8192
+        user_friendly_names     yes
+}
+blacklist {
+        devnode "^(ram|raw|loop|fd|md|dm-|sr|scd|st|nbd)[0-9]*"
+        devnode "^hd[a-z][0-9]*"
+        devnode "^etherd"
+        %include "/etc/blacklisted.wwids"
+}
+"@
+
+    $Hostname = "eps-weblogic01.tervis.prv"
+    $IPAddress = (Resolve-DnsName $Hostname).ipaddress
+    $Initiatornamestring = "InitiatorName=iqn.1988-12.com.oracle:$($Hostname)"
+
+    $agentIDContent = @"
+cat >/agentID.txt <<
+$Hostname
+$IPAddress
+"@
+
+    $ISCSIInitiatorstring = @"
+cat >/etc/iscsi/initiatorname.iscsi << 
+$Initiatornamestring
+"@
+
+    $credential = Get-PasswordstateCredential -PasswordID 4702
+    
+    New-SSHSession -ComputerName $Hostname -Credential $credential
+    
+    Invoke-SSHCommand -SSHSession $sshsessions -Command $agentIDContent
+    Invoke-SSHCommand -SSHSession $sshsessions -Command $multipathconfcontent
+    Invoke-SSHCommand -SSHSession $sshsessions -Command $ISCSIInitiatorstring
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "chkconfig multipathd on;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "chkconfig hostagent on;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "chkconfig iscsid on;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "service hostagent start;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "service iscsid start;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "service multipathd start;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m discovery -t sendtargets -p 10.172.68.5;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m discovery -t sendtargets -p 10.172.68.6;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m node -T iqn.1992-04.com.emc:cx.apm00142217660.a4 -p 10.172.68.5 -l;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m node -T iqn.1992-04.com.emc:cx.apm00142217660.a5 -p 10.172.70.5 -l;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m node -T iqn.1992-04.com.emc:cx.apm00142217660.b4 -p 10.172.68.6 -l;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m node -T iqn.1992-04.com.emc:cx.apm00142217660.b5 -p 10.172.70.6 -l;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m session --rescan;"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "service hostagent restart;"
+    
+    Remove-SSHSession -SSHSession $sshsessions
+}
