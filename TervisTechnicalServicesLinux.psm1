@@ -789,7 +789,10 @@ function Invoke-TervisLinuxCommand {
     Invoke-LinuxCommand -Credential $Credential -ComputerName $ComputerName -Command $Command
 }
 
-function Set-LinuxISCSIConfiguration{
+function Set-LinuxISCSIConfiguration {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
 
     $multipathconfcontent = @"
 cat >/etc/multipath.conf <<
@@ -806,7 +809,7 @@ blacklist {
 }
 "@
 
-    $Hostname = "eps-weblogic01.tervis.prv"
+    $Hostname = $ComputerName
     $IPAddress = (Resolve-DnsName $Hostname).ipaddress
     $Initiatornamestring = "InitiatorName=iqn.1988-12.com.oracle:$($Hostname)"
 
