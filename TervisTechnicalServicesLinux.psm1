@@ -221,7 +221,7 @@ function Set-TervisSFTPServerConfiguration {
     $CentOSVMPasswordStateEntry = Get-PasswordStateCredentialFromFile -SecuredAPIkeyFilePath "\\fs1\disasterrecovery\Source Controlled Items\SecuredCredential API Keys\CentOSTemplateDefaultRoot.apikey"
     $secpassword = ConvertTo-SecureString $CentOSVMPasswordStateEntry.Password -AsPlainText -force
     $CentOSVMCredential = New-Object System.Management.Automation.PSCredential ($CentOSVMPasswordStateEntry.UserName, $secpassword)
-    New-SSHSession -Credential $CentOSVMCredential -ComputerName $TervisVMObject.IpAddress -AcceptKey
+    New-SSHSession -Credential $CentOSVMCredential -ComputerName $TervisVMObject.IpAddress -acceptkey
 
     $PathToCIFSShareServiceAccountSecureStringFile = "\\fs1\disasterrecovery\Source Controlled Items\SecuredCredential API Keys\inf-sftp.apikey"
     $PasswordstateCredential = Get-PasswordStateCredentialFromFile $PathToCIFSShareServiceAccountSecureStringFile
@@ -313,7 +313,7 @@ function set-TervisOracleODBEEServerConfiguration {
     )
     $Node = Get-TervisOracleApplicationNode -OracleApplicationName OracleODBEE
     $OracleODBEETemplateRootCredential = Get-PasswordstateCredential -PasswordID "4040"
-    $SSHSession = New-SSHSession -Credential $credential -ComputerName $Computername -AcceptKey
+    $SSHSession = New-SSHSession -Credential $credential -ComputerName $Computername -acceptkey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet policycoreutils-python"    
@@ -487,7 +487,7 @@ function set-NetaTalkFileServerConfiguration {
     $ComputerName = $TervisVMObject.Name
     $IPAddress = $TervisVMObject.IPAddress
         $Credential = Get-PasswordstateCredential -PasswordID "4119"
-    $SSHSession = New-SSHSession -Credential $credential -ComputerName $IPAddress -AcceptKey
+    $SSHSession = New-SSHSession -Credential $credential -ComputerName $IPAddress -acceptkey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet realmd sssd oddjob oddjob-mkhomedir adcli samba-common ntpdate ntp"    
@@ -555,7 +555,7 @@ function set-TervisOVMManagerserverConfiguration {
         $Computername
     )
     $Credential = Get-PasswordstateCredential -PasswordID "4040"
-    $SSHSession = New-SSHSession -Credential $credential -ComputerName $Computername -AcceptKey
+    $SSHSession = New-SSHSession -Credential $credential -ComputerName $Computername -acceptkey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet realmd sssd oddjob oddjob-mkhomedir adcli samba-common-tools PackageKit"    
@@ -737,4 +737,47 @@ function Get-LinuxPVList {
     $output = (Invoke-SSHCommand -SSHSession $SshSessions -Command $Command).output 
     $output | ConvertFrom-String -TemplateContent $PVSTemplate 
     Remove-SSHSession $SshSessions | Out-Null
+}
+
+<<<<<<< HEAD
+function Invoke-OELULNCERTFix {
+    param(
+        [parameter(Mandatory)] $Computername
+    )
+
+    $credential = Get-PasswordstateCredential -PasswordID 4702
+
+    New-SSHSession -ComputerName $Hostname -Credential $credential
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "cp /usr/share/rhn/ULN-CA-CERT /usr/share/rhn/ULN-CA-CERT.old"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "wget https://linux-update.oracle.com/rpms/ULN-CA-CERT.sha2"
+    Invoke-SSHCommand -SSHSession $sshsessions -Command "cp ULN-CA-CERT.sha2 /usr/share/rhn/ULN-CA-CERT -f"
+    Remove-SSHSession -SSHSession $sshsessions
+=======
+
+function New-LinuxISCSISetup {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+
+$iSCSISetupCommands = @"
+sudo yum install iscsi-initiator-utils
+
+
+"@
+    $Credential = Get-PasswordstateCredential -PasswordID 4702
+    New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
+    Invoke-SSHCommand -SSHSession $SshSessions -Command $Command
+
+}
+
+function Get-LinuxPackageInstalled {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory)]$PackageName
+    )
+    $Credential = Get-PasswordstateCredential -PasswordID 4702
+    New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
+    Invoke-SSHCommand -SSHSession $SshSessions -Command "yum list installed $PackageName" |
+    Select -ExpandProperty Output
+>>>>>>> 2824d9ecad9a0c3062c34b1accd7f40a9bfd4197
 }
