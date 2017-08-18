@@ -771,14 +771,20 @@ function Get-TervisLinuxPackageInstalled {
 
 function Invoke-OELULNCERTFix {
     param(
-        [parameter(Mandatory)] $Computername
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]$Computername
     )
+    process {
+        Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "cp /usr/share/rhn/ULN-CA-CERT /usr/share/rhn/ULN-CA-CERT.old"
+        Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "wget https://linux-update.oracle.com/rpms/ULN-CA-CERT.sha2"
+        Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "cp ULN-CA-CERT.sha2 /usr/share/rhn/ULN-CA-CERT -f"
+    }
+}
 
-    $credential = Get-PasswordstateCredential -PasswordID 4702
-
-    New-SSHSession -ComputerName $Hostname -Credential $credential
-    Invoke-SSHCommand -SSHSession $sshsessions -Command "cp /usr/share/rhn/ULN-CA-CERT /usr/share/rhn/ULN-CA-CERT.old"
-    Invoke-SSHCommand -SSHSession $sshsessions -Command "wget https://linux-update.oracle.com/rpms/ULN-CA-CERT.sha2"
-    Invoke-SSHCommand -SSHSession $sshsessions -Command "cp ULN-CA-CERT.sha2 /usr/share/rhn/ULN-CA-CERT -f"
-    Remove-SSHSession -SSHSession $sshsessions
+function Invoke-TervisLinuxCommand {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory)]$Command
+    )
+    $Credential = Get-PasswordstateCredential -PasswordID 4702
+    Invoke-LinuxCommand -Credential $Credential -ComputerName $ComputerName -Command $Command
 }
