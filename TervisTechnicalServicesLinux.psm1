@@ -744,20 +744,71 @@ function New-LinuxISCSISetup {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
     )
-    $iSNSServers = Get-TervisApplicationNode -ApplicationName iSNS
 
-$iSCSISetupCommands = @"
-sudo yum install iscsi-initiator-utils
-$(foreach ($iSNSServer in $iSNSServers) {
-"iscsiadm -m discovery -t sendtargets -p $($iSNSServer.ComputerName)"
+$multipathconfcontent = @"
+cat >/etc/multipath.conf <<
+defaults {
+        polling_interval        10
+        max_fds                 8192
+        user_friendly_names     yes
 }
-)
-
+blacklist {
+        devnode "^(ram|raw|loop|fd|md|dm-|sr|scd|st|nbd)[0-9]*"
+        devnode "^hd[a-z][0-9]*"
+        devnode "^etherd"
+        %include "/etc/blacklisted.wwids"
+}
 "@
-    $Credential = Get-PasswordstateCredential -PasswordID 4702
-    New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
-    Invoke-SSHCommand -SSHSession $SshSessions -Command $Command
+$agentIDContent = @"
+cat >/agentID.txt <<
+$Hostname
+$IPAddress
+"@
+$ISCSIInitiatorstring = @"
+cat >/etc/iscsi/initiatorname.iscsi << 
+$Initiatornamestring
+"@
+$ISCSIConfContent = @"
+cat >/etc/iscsi/iscsi.conf <<
+node.startup = automatic
+node.conn[0].startup = automatic
+node.session.timeo.replacement_timeout = 120
+node.conn[0].timeo.login_timeout = 15
+node.conn[0].timeo.logout_timeout = 15
+node.conn[0].timeo.noop_out_interval = 5
+node.conn[0].timeo.noop_out_timeout = 5
+node.session.err_timeo.abort_timeout = 15
+node.session.err_timeo.lu_reset_timeout = 30
+node.session.initial_login_retry_max = 8
+node.session.cmds_max = 128
+node.session.queue_depth = 32
+node.session.xmit_thread_priority = -20
+node.session.iscsi.InitialR2T = No
+node.session.iscsi.ImmediateData = Yes
+node.session.iscsi.FirstBurstLength = 262144
+node.session.iscsi.MaxBurstLength = 16776192
+node.conn[0].iscsi.MaxRecvDataSegmentLength = 262144
+node.conn[0].iscsi.MaxXmitDataSegmentLength = 0
+discovery.sendtargets.iscsi.MaxRecvDataSegmentLength = 32768
+node.conn[0].iscsi.HeaderDigest = None
+node.session.iscsi.FastAbort = Yes
+"@
 
+    if ((Get-TervisLinuxPackageInstalled -ComputerName $ComputerName -PackageName "iscsi-initiator-util").ExitStatus -ne 0){
+        Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "sudo yum install iscsi-initiator-utils"
+    }
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $agentIDContent
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $multipathconfcontent
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $ISCSIInitiatorstring
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $ISCSIConfContent
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig multipathd on;"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig hostagent on;"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig iscsid on;"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service hostagent start;"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service iscsid start;"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service multipathd start;"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p isns.infrastructure.tervis.prv -D"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m node -l"
 }
 
 function Get-TervisLinuxPackageInstalled {
@@ -765,8 +816,7 @@ function Get-TervisLinuxPackageInstalled {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
         [Parameter(Mandatory)]$PackageName
     )
-    $Credential = Get-PasswordstateCredential -PasswordID 4702
-    Get-LinuxPackageInstalled -ComputerName $ComputerName -PackageName $PackageName -Credential $Credential
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "yum list installed $PackageName"
 }
 
 function Invoke-OELULNCERTFix {
@@ -785,8 +835,12 @@ function Invoke-TervisLinuxCommand {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
         [Parameter(Mandatory)]$Command
     )
-    $Credential = Get-PasswordstateCredential -PasswordID 4702
-    Invoke-LinuxCommand -Credential $Credential -ComputerName $ComputerName -Command $Command
+#    $Credential = Get-PasswordstateCredential -PasswordID 4702
+    $Credential = Get-PasswordstateCredential -PasswordID 2614
+#    Invoke-LinuxCommand -Credential $Credential -ComputerName $ComputerName -Command $Command
+    New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
+    Invoke-SSHCommand -SSHSession $SshSessions -Command $Command
+    Remove-SSHSession -SSHSession $SshSessions | Out-Null
 }
 
 function Set-LinuxISCSIConfiguration {
