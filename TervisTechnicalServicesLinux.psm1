@@ -848,3 +848,39 @@ $Initiatornamestring
     
     Remove-SSHSession -SSHSession $sshsessions
 }
+
+function Set-LinuxHostname {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+    process {
+        $Command = @"
+hostname $ComputerName
+echo $ComputerName > /etc/hostname
+"@
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    }
+}
+
+function Join-LinuxToADDomain {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+    )
+    process {
+        $DomainJoinCredential = Get-PasswordstateCredential -PasswordID 2643
+        $CredentialParts = $DomainJoinCredential.UserName -split "@"
+        $UserName = $CredentialParts[0]
+        $DomainName = $CredentialParts[1].ToUpper()
+
+        $OrganizationalUnit = Get-TervisApplicationOrganizationalUnit -ApplicationName $Node.ApplicationName
+
+        $Command = @"
+echo '$($DomainJoinCredential.GetNetworkCredential().password)' | kinit $UserName@$DomainName
+realm join $DomainName --computer-ou="$($OrganizationalUnit.DistinguishedName)"
+"@
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    }
+}
+
