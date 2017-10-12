@@ -732,6 +732,8 @@ function Get-LinuxPVList {
   {PV*:/dev/xvdf}  {Volgroup:obieedata_vg}        lvm2 a-    {PVSize:500.00G} {PFree:350.00G}
   {PV*:/dev/xvdg}  {Volgroup:ebsbackup-direct_vg} lvm2 a-   {PVSize:1000.00G}      {PFree:0} 
   {PV*:/dev/xvdh}  {Volgroup:obiadata_vg}         lvm2 a-   {PVSize:1024.00G}      {PFree:0} 
+  {PV*:/dev/mpath/mpath0} rpias_vg  lvm2 a-   200.00G    0
+  {PV*:/dev/mpath/mpath1} ebsias_vg lvm2 a-   200.00G    0
 "@
     $Command = "pvs"
     $output = (Invoke-SSHCommand -SSHSession $SshSessions -Command $Command).output 
@@ -744,6 +746,8 @@ function New-LinuxISCSISetup {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
     )
+    $IPAddress = (Resolve-DnsName $ComputerName).ipaddress
+    $Initiatornamestring = "InitiatorName=iqn.1988-12.com.oracle:$($ComputerName)"
 
 $multipathconfcontent = @"
 cat >/etc/multipath.conf <<
@@ -761,7 +765,7 @@ blacklist {
 "@
 $agentIDContent = @"
 cat >/agentID.txt <<
-$Hostname
+$ComputerName
 $IPAddress
 "@
 $ISCSIInitiatorstring = @"
@@ -793,6 +797,31 @@ discovery.sendtargets.iscsi.MaxRecvDataSegmentLength = 32768
 node.conn[0].iscsi.HeaderDigest = None
 node.session.iscsi.FastAbort = Yes
 "@
+$ISCSIDConfContent = @"
+cat >/etc/iscsi/iscsid.conf <<
+node.startup = automatic
+node.conn[0].startup = automatic
+node.session.timeo.replacement_timeout = 120
+node.conn[0].timeo.login_timeout = 15
+node.conn[0].timeo.logout_timeout = 15
+node.conn[0].timeo.noop_out_interval = 5
+node.conn[0].timeo.noop_out_timeout = 5
+node.session.err_timeo.abort_timeout = 15
+node.session.err_timeo.lu_reset_timeout = 30
+node.session.initial_login_retry_max = 8
+node.session.cmds_max = 128
+node.session.queue_depth = 32
+node.session.xmit_thread_priority = -20
+node.session.iscsi.InitialR2T = No
+node.session.iscsi.ImmediateData = Yes
+node.session.iscsi.FirstBurstLength = 262144
+node.session.iscsi.MaxBurstLength = 16776192
+node.conn[0].iscsi.MaxRecvDataSegmentLength = 262144
+node.conn[0].iscsi.MaxXmitDataSegmentLength = 0
+discovery.sendtargets.iscsi.MaxRecvDataSegmentLength = 32768
+node.conn[0].iscsi.HeaderDigest = None
+node.session.iscsi.FastAbort = Yes
+"@
 
     if ((Get-TervisLinuxPackageInstalled -ComputerName $ComputerName -PackageName "iscsi-initiator-util").ExitStatus -ne 0){
         Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "sudo yum install iscsi-initiator-utils"
@@ -801,13 +830,18 @@ node.session.iscsi.FastAbort = Yes
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $multipathconfcontent
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $ISCSIInitiatorstring
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $ISCSIConfContent
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $ISCSIDConfContent
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig multipathd on;"
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig hostagent on;"
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig iscsid on;"
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service hostagent start;"
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service iscsid start;"
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service multipathd start;"
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p isns.infrastructure.tervis.prv -D"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -D"
+    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -o update -n discovery.startup -v automatic"
+#    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -D"
+#    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -o update -n discovery.startup -v automatic"
+
     Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m node -l"
 }
 
@@ -835,8 +869,8 @@ function Invoke-TervisLinuxCommand {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
         [Parameter(Mandatory)]$Command
     )
-#    $Credential = Get-PasswordstateCredential -PasswordID 4702
-    $Credential = Get-PasswordstateCredential -PasswordID 2614
+    $Credential = Get-PasswordstateCredential -PasswordID 4702
+#    $Credential = Get-PasswordstateCredential -PasswordID 2614
 #    Invoke-LinuxCommand -Credential $Credential -ComputerName $ComputerName -Command $Command
     New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
     Invoke-SSHCommand -SSHSession $SshSessions -Command $Command
