@@ -938,3 +938,15 @@ realm join $DomainName --computer-ou="$($OrganizationalUnit.DistinguishedName)"
     }
 }
 
+function Install-LinuxZeroTierOne {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession
+    )
+    process {
+        $Command = @"
+curl -s 'https://pgp.mit.edu/pks/lookup?op=get&search=0x1657198823E52A61' | gpg --import && \
+if z=`$(curl -s 'https://install.zerotier.com/' | gpg); then echo "`$z" | sudo bash; fi
+"@
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    }
+}
