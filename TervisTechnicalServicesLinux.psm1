@@ -984,3 +984,60 @@ if z=`$(curl -s 'https://install.zerotier.com/' | gpg); then echo "`$z" | sudo b
         Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
     }
 }
+
+function Set-LinuxTimeZone {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory)]$Country,
+        [Parameter(Mandatory)]$ZoneName
+    )
+    process {
+        $Command = @"
+ln -sf /usr/share/zoneinfo/$Country/$ZoneName /etc/localtime
+"@
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    }
+}
+
+function New-LinuxUser {
+    param (
+        [Parameter(Mandatory)]$ComputerName,
+        [Parameter(Mandatory)]$Credential,
+        [Parameter(Mandatory)]$NewCredential,
+        [Switch]$Administrator
+    )
+    process {
+        $Command = @"
+useradd -m $($NewCredential.UserName)$(if($Administrator){" -G wheel"})
+echo "$($NewCredential.UserName):$($NewCredential.GetNetworkCredential().Password)" | chpasswd
+"@
+        $SSHSession = New-SSHSession -ComputerName $ComputerName -Credential $Credential -AcceptKey
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+        $SSHSession | Remove-SSHSession
+    }
+}
+
+function Remove-LinuxUser {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory)]$UserName
+    )
+    process {
+        $Command = @"
+userdel -r $UserName
+"@
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    }
+}
+
+function Set-LinuxAccountPassword {
+    param (
+        [Parameter(Mandatory)]$ComputerName,
+        [Parameter(Mandatory)]$Credential,
+        [Parameter(Mandatory)]$NewCredential
+    )
+    $SSHSession = New-SSHSession -ComputerName $ComputerName -Credential $Credential -AcceptKey
+    $Command = "echo `"$($NewCredential.UserName):$($NewCredential.GetNetworkCredential().Password)`" | chpasswd"
+    Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    Remove-SSHSession -SSHSession $SSHSession
+}
