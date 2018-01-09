@@ -14,6 +14,7 @@ function Invoke-LinuxSFTPServiceVMProvision {
 
     $ADUsername = "$VendorName-SFTP"
     $PasswordstateCredentialUsername = $ADUsername + "@tervis.prv"
+    $SFTPLoginPrivilegeGroup = "Privilege_" + $ADUsername + "SFTPLogonAccess"
     $PasswordstateCredentialTitle = "$VendorName SFTP Login User"
     $PasswordstateListID = "33"  #Development Administrator List
     $PasswordstateEntry = New-PasswordstateEntry -PasswordListID $PasswordstateListID -Username $PasswordstateCredentialUsername -Title $PasswordstateCredentialTitle
@@ -23,7 +24,7 @@ function Invoke-LinuxSFTPServiceVMProvision {
     $SFTPFQDN = ($VendorName + "sftp.tervis.com").ToLower()
 
     #New-TervisADVendorUser -Username $ADUsername
-    $SFTPVMObject = New-TervisTechnicalServicesApplicationVM -ApplicationType SFTP
+    #$SFTPVMObject = New-TervisTechnicalServicesApplicationVM -ApplicationType SFTP
 
     $SecurityGroupPrefix = "Privilege" + (($NamespacePath -replace "\\\\tervis.prv","") -replace "\\","_") + "_$VendorName"
     $SecurityGroupPermissionSuffix = "RW"
@@ -35,8 +36,9 @@ function Invoke-LinuxSFTPServiceVMProvision {
         "PWState Credential" = $PasswordstateListID
         "SFTP Username" = $PasswordstateCredentialUsername
         "SFTP URL" = $SFTPFQDN + ":" + $PortNumber
+        "Provisioning Command" = "Invoke-LinuxSFTPServiceVMProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -VendorName $VendorName -NamespacePath $NamespacePath -PortNumber $PortNumber"
     }
-
+    
     Foreach($Environment in $EnvironmentList){
         $SecurityGroupName = "$SecurityGroupPrefix`_$Environment`_$SecurityGroupPermissionSuffix"
         $Path = "$NamespacePath`\$VendorName`\$Environment"
@@ -56,7 +58,7 @@ function Invoke-LinuxSFTPServiceVMProvision {
         $SFTPServiceSummary | Add-Member NoteProperty "$Environment File Path Access Security Group" $SecurityGroupName
     }
 
-    Set-TervisSFTPServerConfiguration -ServiceName $VendorName -SFTPUsername $PasswordstateEntry.Username -PathToSFTPDataShare $SFTPMountPath -PortNumber $PortNumber -TervisVMObject $SFTPVMObject
+    $Nodes | Set-TervisSFTPServerConfiguration -ServiceName $VendorName -SFTPUsername $PasswordstateEntry.Username -PathToSFTPDataShare $SFTPMountPath -PortNumber $PortNumber
 
     $AdditionalCommands = @"
 ************************************************************************************
@@ -138,7 +140,6 @@ Function Wait-ForPortNotAvailable {
 }
 
 
-
 function Start-TervisVMAndWaitForPort {
     Param (
         [Parameter(Mandatory)]
@@ -213,32 +214,23 @@ function Set-TervisSFTPServerConfiguration {
         $PortNumber,
 
         [Parameter(Mandatory, ValueFromPipeline)]
-        $TervisVMObject
+        $Node
     )
 
-    Start-TervisVMAndWaitForPort -PortNumbertoMonitor "22" -TervisVMObject $TervisVMObject
-
-    $CentOSVMPasswordStateEntry = Get-PasswordStateCredentialFromFile -SecuredAPIkeyFilePath "\\fs1\disasterrecovery\Source Controlled Items\SecuredCredential API Keys\CentOSTemplateDefaultRoot.apikey"
-    $secpassword = ConvertTo-SecureString $CentOSVMPasswordStateEntry.Password -AsPlainText -force
-    $CentOSVMCredential = New-Object System.Management.Automation.PSCredential ($CentOSVMPasswordStateEntry.UserName, $secpassword)
-    New-SSHSession -Credential $CentOSVMCredential -ComputerName $TervisVMObject.IpAddress -acceptkey
-
-    $PathToCIFSShareServiceAccountSecureStringFile = "\\fs1\disasterrecovery\Source Controlled Items\SecuredCredential API Keys\inf-sftp.apikey"
-    $PasswordstateCredential = Get-PasswordStateCredentialFromFile $PathToCIFSShareServiceAccountSecureStringFile
+    $Credential = Get-PasswordstateCredential -PasswordID $Node.LocalAdminPasswordStateID
+    New-SSHSession -Credential $Credential -ComputerName $Node.IpAddress -acceptkey
+    $CIFSPasswordstateCredential = Get-PasswordstateCredential -AsPlainText -PasswordID 3939
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet realmd sssd oddjob oddjob-mkhomedir adcli samba-common"    
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "hostname $($TervisVMObject.name)"
-    $fqdn = ((Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "facter | grep fqdn").output -split " ")[2]
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "echo $fqdn > /etc/hostname"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet"    
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir /etc/puppet/manifests"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install ceh-fstab"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yum install -y policycoreutils-python"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "semanage port -a -t ssh_port_t -p tcp $PortNumber"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "firewall-cmd --add-port $PortNumber/tcp"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "firewall-cmd --add-port $PortNumber/tcp --permanent"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yum -y update"
         
     $CredentialFileLocation = "/etc/SFTPServiceAccountCredentials.txt"
     $SFTPRootDirectory = "/sftpdata/$ServiceName/$ServiceName"
@@ -246,7 +238,7 @@ function Set-TervisSFTPServerConfiguration {
 
     $CreateSFTPServiceAccountUserNameAndPasswordFile = @"
 cat >/etc/SFTPServiceAccountCredentials.txt <<
-username=$($PasswordstateCredential.username)`npassword=$($PasswordstateCredential.password)
+username=$($CIFSPasswordstateCredential.username)`npassword=$($CIFSPasswordstateCredential.password)
 "@ 
 
     $CreatePuppetConfigurationCommand = @"
@@ -267,6 +259,7 @@ class { 'ssh::server':
     'HostKey' => ['/etc/ssh/ssh_host_rsa_key','/etc/ssh/ssh_host_ecdsa_key','/etc/ssh/ssh_host_ed25519_key'],
     'Port' => ['22','$PortNumber'],
     'SyslogFacility' => 'AUTHPRIV',
+    'PermitRootLogin' => 'no',
     'PasswordAuthentication' => 'yes',
     'Subsystem' => 'sftp internal-sftp',
     'Match User *,!root' => {
@@ -954,7 +947,8 @@ echo $ComputerName > /etc/hostname
 function Join-LinuxToADDomain {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ApplicationName
     )
     process {
         $DomainJoinCredential = Get-PasswordstateCredential -PasswordID 2643
@@ -962,7 +956,7 @@ function Join-LinuxToADDomain {
         $UserName = $CredentialParts[0]
         $DomainName = $CredentialParts[1].ToUpper()
 
-        $OrganizationalUnit = Get-TervisApplicationOrganizationalUnit -ApplicationName $Node.ApplicationName
+        $OrganizationalUnit = Get-TervisApplicationOrganizationalUnit -ApplicationName $ApplicationName
 
         $Command = @"
 echo '$($DomainJoinCredential.GetNetworkCredential().password)' | kinit $UserName@$DomainName
