@@ -295,18 +295,98 @@ sudo::conf { 'linuxserveradministrator':
     get-sshsession | remove-sshsession
 }
 
+function Invoke-OracleApplicationProvision {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]$ApplicationName,
+        $EnvironmentName
+    )
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $TervisApplicationDefinition = Get-TervisApplicationDefinition -Name $ApplicationName
+
+    $Nodes |
+    where {-not $_.VM} |
+    Invoke-ApplicationNodeOracleProvision -ApplicationName $ApplicationName
+    if ( $Nodes | where {-not $_.VM} ) {
+        throw "Not all nodes have VMs even after Invoke-ApplicationNodeVMProvision"
+    }
+}
+
+function Invoke-ApplicationNodeOracleProvision {
+    [CmdletBinding(SupportsShouldProcess)]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)]$Node,
+        [Parameter(Mandatory)]$ApplicationName,
+        [Switch]$PassThru
+    )
+    begin {
+        $ADDomain = Get-ADDomain
+        $ApplicationDefinition = Get-TervisApplicationDefinition -Name $ApplicationName
+    }
+    process {
+        $RootPasswordstateEntryDetails = Get-PasswordstateEntryDetails $Node.LocalAdminPasswordStateID
+        #$VMTemplateCredential = Get-PasswordstateCredential -PasswordID $Node.LocalAdminPasswordStateID
+        $DHCPScope = Get-TervisDhcpServerv4Scope -Environment $Node.EnvironmentName
+        $TervisVMParameters = @{
+            VMNameWithoutEnvironmentPrefix = $Node.NameWithoutPrefix
+            VMOperatingSystemTemplateName = $ApplicationDefinition.VMOperatingSystemTemplateName
+            EnvironmentName = $Node.EnvironmentName
+        }
+        $TervisVMParameters | Write-VerboseAdvanced -Verbose:($VerbosePreference -ne "SilentlyContinue")
+        $VM = New-OVMVirtualMachineClone @TervisVMParameters
+        New-OVMVirtualNIC -VMID $ClonedVirtualMachine.id.value -Network $DHCPScope
+        Start-OVMVirtualMachine -VMID $VM.id.value
+        New-OVMVirtualMachineConsole -Name $VM.id.name
+        $Hostname = $vm.id.name + ".tervis.prv"
+        Start-Sleep -Seconds 60
+        $InitialConfigJSON = [pscustomobject][ordered]@{
+            key = "com.oracle.linux.network.bootproto.0"
+            value = "dhcp"
+        },
+        [pscustomobject][ordered]@{
+            key = "com.oracle.linux.network.onboot.0"
+            value = "yes"
+        },
+        [pscustomobject][ordered]@{
+            key = "com.oracle.linux.network.device.0"
+            value = "eth0"
+        },
+        [pscustomobject][ordered]@{
+            key = "com.oracle.linux.root-password"
+            value = $RootPasswordstateEntryDetails.Password
+        },
+        [pscustomobject][ordered]@{
+            key = "com.oracle.linux.network.hostname"
+            value = "$Hostname"
+        },
+        [pscustomobject][ordered]@{
+            key = "com.oracle.linux.network.host.0"
+            value = $Hostname
+        } | convertto-json
+        Invoke-OVMSendMessagetoVM -VMID $VM.id.value -JSON $InitialConfigJSON
+
+        $Node | Add-NodeOracleVMProperty -PassThru | Add-NodeoracleIPAddressProperty
+        Wait-ForPortNotAvailable -PortNumbertoMonitor 22 -ComputerName $Node.IpAddress
+        Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
+    }
+}
+
 function set-TervisOracleODBEEServerConfiguration {
     Param(
         [Parameter(Mandatory)]
         $Computername,
         [Parameter(Mandatory)]
-        $Environment
+        $EnvironmentName
 
         
     )
-    $Node = Get-TervisOracleApplicationNode -OracleApplicationName OracleODBEE
-    $OracleODBEETemplateRootCredential = Get-PasswordstateCredential -PasswordID "4040"
-    $SSHSession = New-SSHSession -Credential $credential -ComputerName $Computername -acceptkey
+    $Node = Get-TervisOracleApplicationNode -OracleApplicationName "OracleODBEE"
+    $TervisApplicationDefinition = Get-TervisApplicationDefinition -Name "OracleODBEE"
+    $VMOperatingSystemTemplate = Get-OVMVirtualMachines -Name $TervisApplicationDefinition.$VMOperatingSystemTemplateName
+    $VMName = Get-TervisVMName -VMNameWithoutEnvironmentPrefix 
+    Get-TervisApplicationNode -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
+    $OracleODBEETemplateRootCredential = Get-PasswordstateCredential -PasswordID $TervisApplicationDefinition.LocalAdminPasswordStateID
+    $SSHSession = New-SSHSession -Credential $OracleODBEETemplateRootCredential -ComputerName $Computername -acceptkey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet policycoreutils-python"    
@@ -314,27 +394,27 @@ function set-TervisOracleODBEEServerConfiguration {
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir /etc/puppet/manifests"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate inf-dc1;sysemctl start ntpd.service"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate inf-dc01;sysemctl start ntpd.service"
 
-    $OracleSMBShareADCredential = Get-PasswordstateCredential -PasswordID $Node.OracleSMBShareADCredential -AsPlainText
+#    $OracleSMBShareADCredential = Get-PasswordstateCredential -PasswordID $Node.OracleSMBShareADCredential -AsPlainText
     $OracleUserCredential = Get-PasswordstateCredential -PasswordID $Node.OracleUserCredential -AsPlainText
     $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $Node.ApplemgrUserCredential -AsPlainText
 
-    $CreateSMBServiceAccountUserNameAndPasswordFile = @"
-cat >/etc/SMBServiceAccountCredentials.txt <<
-username=$($OracleSMBShareADCredential.username)`npassword=$($OracleSMBShareADCredential.password)
-"@ 
-    $FSTABCredentialFilePath = "/etc/SMBServiceAccountCredentials.txt"
+#    $CreateSMBServiceAccountUserNameAndPasswordFile = @"
+#cat >/etc/SMBServiceAccountCredentials.txt <<
+#username=$($OracleSMBShareADCredential.username)`npassword=$($OracleSMBShareADCredential.password)
+#"@ 
+#    $FSTABCredentialFilePath = "/etc/SMBServiceAccountCredentials.txt"
     $PrimaryDatabaseBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleDatabaseBackups"
     $PrimaryArchivelogBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleArchivelogBackups"
     $PrimaryOSBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleOSBackups"
-    $SecondaryDatabaseBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleDatabaseBackups"
-    $SecondaryArchivelogBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleArchivelogBackups"
-    $SecondaryOSBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleOSBackups"
+#    $SecondaryDatabaseBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleDatabaseBackups"
+#    $SecondaryArchivelogBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleArchivelogBackups"
+#    $SecondaryOSBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleOSBackups"
 
     $PatchesNFSSharePath = "dfs-10:/EBSPatchBackup"
     $CreatePuppetConfigurationCommand = @"
-cat >/etc/puppet/manifests/ODBEEServer.pp <<
+cat >/etc/puppet/manifests/OracleODBEE.pp <<
 group { 'dba':
     ensure => 'present',
     gid    => '500',
@@ -380,21 +460,6 @@ fstab::mount { '/backup/primary':
 fstab::mount { '/backup/primary':
     ensure           => 'mounted',
     device           => '$PrimaryOSBackupsNFSSharePath',
-    fstype           => 'nfs'
-}
-fstab::mount { '/backup/secondary':
-    ensure           => 'mounted',
-    device           => '$SecondaryDatabaseBackupsNFSSharePath',
-    fstype           => 'nfs'
-}
-fstab::mount { '/backup/secondary':
-    ensure           => 'mounted',
-    device           => '$SecondaryArchivelogBackupsNFSSharePath',
-    fstype           => 'nfs'
-}
-fstab::mount { '/backup/secondary':
-    ensure           => 'mounted',
-    device           => '$SecondaryOSBackupsNFSSharePath',
     fstype           => 'nfs'
 }
 fstab::mount { '/patches':
@@ -458,18 +523,15 @@ service { 'ntpd': enable => true,ensure => 'running' }
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $OSBackupsSMBSharePath"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $PatchesNFSSharePath"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreateSMBServiceAccountUserNameAndPasswordFile
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "chmod 400 /etc/SMBServiceAccountCredentials.txt"
+#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreateSMBServiceAccountUserNameAndPasswordFile
+#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "chmod 400 /etc/SMBServiceAccountCredentials.txt"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreatePuppetConfigurationCommand
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet apply /etc/puppet/manifests/SFTPServer.pp"
+    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet apply /etc/puppet/manifests/OracleODBEE.pp"
 
 
 
 
     Remove-SSHSession $SSHSession | Out-Null
-
-
-
 }
 
 function set-NetaTalkFileServerConfiguration {
@@ -582,21 +644,6 @@ sudo::conf { 'linuxserveradministrator':
     Remove-SSHSession $SSHSession | Out-Null
 }
 
-$OracleApplicationDefinition = [PSCustomObject][Ordered]@{
-    Name = "OracleODBEE"
-    NodeNameRoot = "ODBEE"
-    Environments = [PSCustomObject][Ordered]@{
-        Name = "Zeta"
-        NumberOfNodes = 1
-        VMSizeName = "Medium"
-        RootPasswordStateID = 294
-        OracleUserCredential = 4312
-        ApplmgrUserCredential = 4311
-        OracleSMBShareADCredential = 4169
-
-    }
-}
-
 function Get-TervisOracleApplicationDefinition {
     param (
         [Parameter(Mandatory)]$Name
@@ -604,35 +651,6 @@ function Get-TervisOracleApplicationDefinition {
     
     $OracleApplicationDefinition | 
     where Name -EQ $Name
-}
-
-function Get-TervisOracleApplicationNode {
-    param (
-        [Parameter(Mandatory)]$OracleApplicationName,
-        [String[]]$EnvironmentName
-    )
-    $OracleApplicationDefinition = Get-TervisOracleApplicationDefinition -Name $ApplicationName
-    
-    $Environments = $OracleApplicationDefinition.Environments |
-    where {-not $EnvironmentName -or $_.Name -In $EnvironmentName}
-
-    foreach ($Environment in $Environments) {
-        foreach ($NodeNumber in 1..$Environment.NumberOfNodes) {
-            $EnvironmentPrefix = get-TervisEnvironmentPrefix -EnvironmentName $Environment.Name
-            $Node = [PSCustomObject][Ordered]@{                
-                ComputerName = "$EnvironmentPrefix-$($OracleApplicationDefinition.NodeNameRoot)$($NodeNumber.tostring("00"))"
-                EnvironmentName = $Environment.Name
-                ApplicationName = $OracleApplicationDefinition.Name
-                VMSizeName = $Environment.VMSizeName
-                NameWithoutPrefix = "$($OracleApplicationDefinition.NodeNameRoot)$($NodeNumber.tostring("00"))"
-                RootPasswordStateID = $Environment.RootPasswordStateID
-            } | Add-Member -MemberType ScriptProperty -Name IPAddress -Value {
-                Find-DHCPServerv4LeaseIPAddress -HostName $This.ComputerName
-            } -PassThru
-            
-            $Node
-        }
-    }
 }
 
 function Invoke-OraDBARMTProvision {
