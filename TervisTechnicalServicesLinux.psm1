@@ -1074,13 +1074,15 @@ function Add-OVMNodeIPAddressProperty {
     process {
         if ($Node.VM) {
             $Node | Add-Member -MemberType ScriptProperty -Force -Name IPAddress -Value {
-                #$VMNetworkMacAddress = (Get-OVMVirtualNicMacAddress -VirtualNicID (Get-OVMVirtualNicMacAddress -VirtualNicID $_.VM.virtualNicIds.value) -replace ':', '-')
-                #Find-DHCPServerv4LeaseIPAddress -MACAddressWithDashes $VMNetworkMacAddress -AsString
-                Find-DHCPServerv4LeaseIPAddress -MACAddressWithDashes "00-21-f6-d1-08-f1" -AsString
+                $VMNetworkMacAddress = (Get-OVMVirtualNicMacAddress -VirtualNicID ($this.VM.virtualNicIds.value)) -replace ':', '-'
+                Find-DHCPServerv4LeaseIPAddress -MACAddressWithDashes $VMNetworkMacAddress -AsString |
+                Select-Object -First 1
             }
         } else {
             $Node | Add-Member -MemberType ScriptProperty -Force -Name IPAddress -Value {
-                Find-DHCPServerv4LeaseIPAddress -HostName $This.ComputerName -AsString |
+                $VM = Get-OVMVirtualMachines -Name $this.ComputerName
+                $VMMACAddressWithDashes = (Get-OVMVirtualNicMacAddress -VirtualNicID $VM.virtualNicIds.value) -replace ":","-"
+                Find-DHCPServerv4LeaseIPAddress -MACAddressWithDashes $VMMACAddressWithDashes -AsString |
                 Select-Object -First 1
             }
         }
