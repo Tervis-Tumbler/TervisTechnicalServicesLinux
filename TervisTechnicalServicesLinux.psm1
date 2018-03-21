@@ -301,7 +301,7 @@ function Invoke-OracleApplicationProvision {
         [Parameter(Mandatory)]$ApplicationName,
         $EnvironmentName
     )
-    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeVM
     $TervisApplicationDefinition = Get-TervisApplicationDefinition -Name $ApplicationName
 
     $Nodes |
@@ -334,10 +334,10 @@ function Invoke-ApplicationNodeOracleProvision {
         }
         $TervisVMParameters | Write-VerboseAdvanced -Verbose:($VerbosePreference -ne "SilentlyContinue")
         $VM = New-OVMVirtualMachineClone @TervisVMParameters
-        New-OVMVirtualNIC -VMID $ClonedVirtualMachine.id.value -Network $DHCPScope
+        New-OVMVirtualNIC -VMID $VM.id.value -Network $DHCPScope.ScopeId
         Start-OVMVirtualMachine -VMID $VM.id.value
         New-OVMVirtualMachineConsole -Name $VM.id.name
-        $Hostname = $vm.id.name + ".tervis.prv"
+        $Hostname = $VM.id.name + ".tervis.prv"
         Start-Sleep -Seconds 60
         $InitialConfigJSON = [pscustomobject][ordered]@{
             key = "com.oracle.linux.network.bootproto.0"
@@ -365,7 +365,7 @@ function Invoke-ApplicationNodeOracleProvision {
         } | convertto-json
         Invoke-OVMSendMessagetoVM -VMID $VM.id.value -JSON $InitialConfigJSON
 
-        $Node | Add-NodeOracleVMProperty -PassThru | Add-NodeoracleIPAddressProperty
+        $Node | Add-OVMNodeVMProperty -PassThru | Add-NodeoracleIPAddressProperty
         Wait-ForPortNotAvailable -PortNumbertoMonitor 22 -ComputerName $Node.IpAddress
         Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
     }
@@ -1052,4 +1052,38 @@ function Set-LinuxAccountPassword {
     $Command = "echo `"$($NewCredential.UserName):$($NewCredential.GetNetworkCredential().Password)`" | chpasswd"
     Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
     Remove-SSHSession -SSHSession $SSHSession
+}
+
+function Add-OVMNodeVMProperty {
+    param (
+        [Parameter(ValueFromPipeline)]$Node,
+        [Switch]$PassThru
+    )
+    process {
+        $Node | Add-Member -MemberType NoteProperty -Name VM -PassThru:$PassThru -Force -Value $(
+            Get-OVMVirtualMachines -Name $Node.ComputerName
+        )        
+    }
+}
+
+function Add-OVMNodeIPAddressProperty {
+    param (
+        [Parameter(ValueFromPipeline)]$Node,
+        [Switch]$PassThru
+    )
+    process {
+        if ($Node.VM) {
+            $Node | Add-Member -MemberType ScriptProperty -Force -Name IPAddress -Value {
+                #$VMNetworkMacAddress = (Get-OVMVirtualNicMacAddress -VirtualNicID (Get-OVMVirtualNicMacAddress -VirtualNicID $_.VM.virtualNicIds.value) -replace ':', '-')
+                #Find-DHCPServerv4LeaseIPAddress -MACAddressWithDashes $VMNetworkMacAddress -AsString
+                Find-DHCPServerv4LeaseIPAddress -MACAddressWithDashes "00-21-f6-d1-08-f1" -AsString
+            }
+        } else {
+            $Node | Add-Member -MemberType ScriptProperty -Force -Name IPAddress -Value {
+                Find-DHCPServerv4LeaseIPAddress -HostName $This.ComputerName -AsString |
+                Select-Object -First 1
+            }
+        }
+        if ($PassThru) { $Node }
+    }
 }
