@@ -295,6 +295,11 @@ sudo::conf { 'linuxserveradministrator':
     get-sshsession | remove-sshsession
 }
 
+Invoke-OracleODBEEProvision{
+    Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE"
+
+}
+
 function Invoke-OracleApplicationProvision {
     [CmdletBinding()]
     param (
@@ -302,17 +307,18 @@ function Invoke-OracleApplicationProvision {
         $EnvironmentName
     )
     $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeVM
-    $TervisApplicationDefinition = Get-TervisApplicationDefinition -Name $ApplicationName
 
     $Nodes |
     where {-not $_.VM} |
-    Invoke-ApplicationNodeOracleProvision -ApplicationName $ApplicationName
+    Invoke-OVMApplicationNodeVMProvision -ApplicationName $ApplicationName
     if ( $Nodes | where {-not $_.VM} ) {
         throw "Not all nodes have VMs even after Invoke-ApplicationNodeVMProvision"
     }
+    $Nodes | Invoke-ApplicationNodeProvision
+    $Nodes | New-TervisApplicationNodeRDMSession
 }
 
-function Invoke-ApplicationNodeOracleProvision {
+function Invoke-OVMApplicationNodeVMProvision {
     [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory,ValueFromPipeline)]$Node,
