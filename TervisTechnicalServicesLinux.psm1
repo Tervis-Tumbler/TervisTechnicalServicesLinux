@@ -295,7 +295,7 @@ sudo::conf { 'linuxserveradministrator':
     get-sshsession | remove-sshsession
 }
 
-Invoke-OracleODBEEProvision{
+function Invoke-OracleODBEEProvision{
     Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE"
 
 }
@@ -340,8 +340,8 @@ function Invoke-OVMApplicationNodeVMProvision {
         }
         $TervisVMParameters | Write-VerboseAdvanced -Verbose:($VerbosePreference -ne "SilentlyContinue")
         $VM = New-OVMVirtualMachineClone @TervisVMParameters
-        New-OVMVirtualNIC -VMID $VM.id.value -Network $DHCPScope.ScopeId
-        Start-OVMVirtualMachine -VMID $VM.id.value
+        New-OVMVirtualNIC -VMID $($VM.id.value) -Network $DHCPScope.ScopeId
+        Start-OVMVirtualMachine -ID $VM.id.value
         New-OVMVirtualMachineConsole -Name $VM.id.name
         $Hostname = $VM.id.name + ".tervis.prv"
         Start-Sleep -Seconds 60
@@ -372,8 +372,8 @@ function Invoke-OVMApplicationNodeVMProvision {
         Invoke-OVMSendMessagetoVM -VMID $VM.id.value -JSON $InitialConfigJSON
 
         $Node | Add-OVMNodeVMProperty -PassThru | Add-NodeoracleIPAddressProperty
-        Wait-ForPortNotAvailable -PortNumbertoMonitor 22 -ComputerName $Node.IpAddress
-        Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
+#        Wait-ForPortNotAvailable -PortNumbertoMonitor 22 -ComputerName $Node.IpAddress
+#        Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
     }
 }
 
@@ -395,7 +395,7 @@ function set-TervisOracleODBEEServerConfiguration {
     $SSHSession = New-SSHSession -Credential $OracleODBEETemplateRootCredential -ComputerName $Computername -acceptkey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet policycoreutils-python"    
+    #Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet policycoreutils-python"    
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install ceh-fstab"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
