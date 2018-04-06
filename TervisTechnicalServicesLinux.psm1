@@ -1103,9 +1103,10 @@ function Invoke-ConfigureMTAForOffice365 {
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
     )
     begin{
-
         $MailerdaemonCredential = Get-PasswordstateEntryDetails -PasswordID 3971
         $SSMTPMoveCommand = "mv /etc/ssmtp/ssmtp.conf /etc/ssmtp/ssmtp.conf.preO365"
+        $DOS2UnixSSMTP = "dos2unix /etc/ssmtp/ssmtp.conf"
+        $DOS2UnixRevaliases = "dos2unix /etc/ssmtp/revaliases"
         $SSMTPCONF = @"
 cat >/etc/ssmtp/ssmtp.conf <<
 mailhub=smtp.office365.com:587
@@ -1130,7 +1131,9 @@ oracle:MailerDaemon@tervis.com:smtp.office365.com:587
         New-SSHSession -ComputerName $Computername -Credential $Credential
         Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $SSMTPMoveCommand
         Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $SSMTPCONF
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixSSMTP
         Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $Revaliases
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixRevaliases
         Remove-SSHSession -SSHSession (Get-SSHSession)
     }
 }
@@ -1141,6 +1144,7 @@ function Invoke-ConfigureMUTTRCForOffice365 {
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
     )
     begin{
+        $DOS2UnixDOTMUTTRC = "dos2unix ~applmgr/.muttrc"
         $DOTMUTTRC = @"
 cat > ~applmgr/.muttrc <<
 set from = "mailerdaemon@tervis.com"
@@ -1151,6 +1155,7 @@ set realname = "Mailer Daemon"
         $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
         New-SSHSession -ComputerName $Computername -Credential $Credential
         Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOTMUTTRC
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixDOTMUTTRC
         Remove-SSHSession -SSHSession (Get-SSHSession)
     }
 }
