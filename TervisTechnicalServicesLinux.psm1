@@ -387,12 +387,13 @@ function set-TervisOracleODBEEServerConfiguration {
         
     )
     $Node = Get-TervisOracleApplicationNode -OracleApplicationName "OracleODBEE"
-    $TervisApplicationDefinition = Get-TervisApplicationDefinition -Name "OracleODBEE"
+        $TervisApplicationDefinition = Get-TervisApplicationDefinition -Name "OracleODBEE"
     $VMOperatingSystemTemplate = Get-OVMVirtualMachines -Name $TervisApplicationDefinition.$VMOperatingSystemTemplateName
+    $LocalAdminPasswordstateID = $TervisApplicationDefinition.LocalAdminPasswordStateID
     $VMName = Get-TervisVMName -VMNameWithoutEnvironmentPrefix 
     Get-TervisApplicationNode -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
-    $OracleODBEETemplateRootCredential = Get-PasswordstateCredential -PasswordID $TervisApplicationDefinition.LocalAdminPasswordStateID
-    $SSHSession = New-SSHSession -Credential $OracleODBEETemplateRootCredential -ComputerName $Computername -acceptkey
+    $RootCredential = Get-PasswordstateCredential -PasswordID $TervisApplicationDefinition.LocalAdminPasswordStateID
+    $SSHSession = New-SSHSession -Credential $RootCredential -ComputerName $Computername -acceptkey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
     #Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet policycoreutils-python"    
@@ -1093,5 +1094,63 @@ function Add-OVMNodeIPAddressProperty {
             }
         }
         if ($PassThru) { $Node }
+    }
+}
+
+function Invoke-ConfigureMTAForOffice365 {
+    param(
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
+    )
+    begin{
+
+        $MailerdaemonCredential = Get-PasswordstateEntryDetails -PasswordID 3971
+        $SSMTPMoveCommand = "mv /etc/ssmtp/ssmtp.conf /etc/ssmtp/ssmtp.conf.preO365"
+        $SSMTPCONF = @"
+cat >/etc/ssmtp/ssmtp.conf <<
+mailhub=smtp.office365.com:587
+RewriteDomain=tervis.com
+FromLineOverride=YES
+UseTLS=YES
+UseSTARTTLS=yes
+TLS_CA_FILE=/etc/pki/tls/certs/ca-bundle.crt
+AuthUser=$($MailerdaemonCredential.Username)
+AuthPass=$($MailerdaemonCredential.Password)
+AuthMethod=LOGIN
+"@
+        $Revaliases = @"
+cat >/etc/ssmtp/revaliases <<
+root:MailerDaemon@tervis.com:smtp.office365.com:587
+applmgr:MailerDaemon@tervis.com:smtp.office365.com:587
+oracle:MailerDaemon@tervis.com:smtp.office365.com:587        
+"@
+    }
+    process{
+        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
+        New-SSHSession -ComputerName $Computername -Credential $Credential
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $SSMTPMoveCommand
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $SSMTPCONF
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $Revaliases
+        Remove-SSHSession -SSHSession (Get-SSHSession)
+    }
+}
+
+function Invoke-ConfigureMUTTRCForOffice365 {
+    param(
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
+    )
+    begin{
+        $DOTMUTTRC = @"
+cat > ~applmgr/.muttrc <<
+set from = "mailerdaemon@tervis.com"
+set realname = "Mailer Daemon"
+"@
+    }
+    process{
+        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
+        New-SSHSession -ComputerName $Computername -Credential $Credential
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOTMUTTRC
+        Remove-SSHSession -SSHSession (Get-SSHSession)
     }
 }
