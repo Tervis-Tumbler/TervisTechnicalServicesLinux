@@ -1097,7 +1097,8 @@ function Add-OVMNodeIPAddressProperty {
     }
 }
 
-function Invoke-ConfigureMTAForOffice365 {
+function Invoke-ConfigureSSMTPForOffice365 {
+    [CmdletBinding()]
     param(
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
@@ -1139,14 +1140,21 @@ oracle:MailerDaemon@tervis.com:smtp.office365.com:587
 }
 
 function Invoke-ConfigureMUTTRCForOffice365 {
+    [CmdletBinding()]
     param(
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
     )
     begin{
-        $DOS2UnixDOTMUTTRC = "dos2unix ~applmgr/.muttrc"
-        $DOTMUTTRC = @"
+        $DOS2UnixDOTMUTTRCApplmgr = "dos2unix ~applmgr/.muttrc"
+        $DOTMUTTRCApplmgr = @"
 cat > ~applmgr/.muttrc <<
+set from = "mailerdaemon@tervis.com"
+set realname = "Mailer Daemon"
+"@
+    $DOS2UnixDOTMUTTRCOracle = "dos2unix ~oracle/.muttrc"
+    $DOTMUTTRCOracle = @"
+cat > ~oracle/.muttrc <<
 set from = "mailerdaemon@tervis.com"
 set realname = "Mailer Daemon"
 "@
@@ -1154,8 +1162,22 @@ set realname = "Mailer Daemon"
     process{
         $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
         New-SSHSession -ComputerName $Computername -Credential $Credential
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOTMUTTRC
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixDOTMUTTRC
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOTMUTTRCApplmgr
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixDOTMUTTRCApplmgr
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOTMUTTRCOracle
+        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixDOTMUTTRCOracle
+        Remove-SSHSession -SSHSession (Get-SSHSession)
+    }
+}
+ function Invoke-InstallandConfigureSSMTPonLinux{
+    [CmdletBinding()]
+    param(
+         [parameter(mandatory)]$Computername
+     )
+    begin{}
+    process{
+        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
+        New-SSHSession -ComputerName $Computername -Credential $Credential
         Remove-SSHSession -SSHSession (Get-SSHSession)
     }
 }
