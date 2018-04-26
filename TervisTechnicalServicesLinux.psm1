@@ -296,8 +296,17 @@ sudo::conf { 'linuxserveradministrator':
 }
 
 function Invoke-OracleODBEEProvision{
-    Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE"
-
+    param (
+        $EnvironmentName
+    )
+    Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession
+    $Nodes | Install-PuppetonLinux
+    $Nodes | Set-LinuxFSTABWithPuppet
+    $Nodes | Invoke-CreateOracleUserAccounts
+    $Nodes | Set-OracleSudoersFile
+    $Nodes | Invoke-InstallandConfigureSSMTPonLinux
+    $Nodes | Invoke-ConfigureMUTTRCForOffice365
 }
 
 function Invoke-OracleApplicationProvision {
@@ -319,7 +328,7 @@ function Invoke-OracleApplicationProvision {
 }
 
 function Invoke-OVMApplicationNodeVMProvision {
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory,ValueFromPipeline)]$Node,
         [Parameter(Mandatory)]$ApplicationName,
@@ -379,166 +388,10 @@ function Invoke-OVMApplicationNodeVMProvision {
 
 function set-TervisOracleODBEEServerConfiguration {
     Param(
-        [Parameter(Mandatory)]
-        $Computername,
-        [Parameter(Mandatory)]
-        $EnvironmentName
+        [Parameter(Mandatory,ValueFromPipeline)]$Node
+   )
+    #Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate inf-dc01;sysemctl start ntpd.service"
 
-        
-    )
-    $Node = Get-TervisOracleApplicationNode -OracleApplicationName "OracleODBEE"
-        $TervisApplicationDefinition = Get-TervisApplicationDefinition -Name "OracleODBEE"
-    $VMOperatingSystemTemplate = Get-OVMVirtualMachines -Name $TervisApplicationDefinition.$VMOperatingSystemTemplateName
-    $LocalAdminPasswordstateID = $TervisApplicationDefinition.LocalAdminPasswordStateID
-    $VMName = Get-TervisVMName -VMNameWithoutEnvironmentPrefix 
-    Get-TervisApplicationNode -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
-    $RootCredential = Get-PasswordstateCredential -PasswordID $TervisApplicationDefinition.LocalAdminPasswordStateID
-    $SSHSession = New-SSHSession -Credential $RootCredential -ComputerName $Computername -acceptkey
-
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
-    #Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet policycoreutils-python"    
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install ceh-fstab"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-ssh"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet module install saz-sudo"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir /etc/puppet/manifests"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate inf-dc01;sysemctl start ntpd.service"
-
-#    $OracleSMBShareADCredential = Get-PasswordstateCredential -PasswordID $Node.OracleSMBShareADCredential -AsPlainText
-    $OracleUserCredential = Get-PasswordstateCredential -PasswordID $Node.OracleUserCredential -AsPlainText
-    $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $Node.ApplemgrUserCredential -AsPlainText
-
-#    $CreateSMBServiceAccountUserNameAndPasswordFile = @"
-#cat >/etc/SMBServiceAccountCredentials.txt <<
-#username=$($OracleSMBShareADCredential.username)`npassword=$($OracleSMBShareADCredential.password)
-#"@ 
-#    $FSTABCredentialFilePath = "/etc/SMBServiceAccountCredentials.txt"
-    $PrimaryDatabaseBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleDatabaseBackups"
-    $PrimaryArchivelogBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleArchivelogBackups"
-    $PrimaryOSBackupsNFSSharePath = "inf-orabackups.tervis.prv:OracleOSBackups"
-#    $SecondaryDatabaseBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleDatabaseBackups"
-#    $SecondaryArchivelogBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleArchivelogBackups"
-#    $SecondaryOSBackupsNFSSharePath = "inf-orabackups2.tervis.prv:OracleOSBackups"
-
-    $PatchesNFSSharePath = "dfs-10:/EBSPatchBackup"
-    $CreatePuppetConfigurationCommand = @"
-cat >/etc/puppet/manifests/OracleODBEE.pp <<
-group { 'dba':
-    ensure => 'present',
-    gid    => '500',
-}
-group { 'appsdev':
-    ensure => 'present',
-    gid    => '501',
-}
-user { 'oracle':
-  ensure           => 'present',
-  uid              => '501',
-  gid              => '500',
-  home             => '/u01/app/oracle',
-  password         => '$OracleUserPassword',
-  password_max_age => '99999',
-  password_min_age => '0',
-  shell            => '/bin/bash',
-}
-user { 'applmgr':
-  ensure           => 'present',
-  uid              => '500',
-  gid              => '500',
-  home             => '/u01/app/applmgr',
-  password         => '$ApplmgrUserPassword',
-  password_max_age => '99999',
-  password_min_age => '0',
-  shell            => '/bin/bash',
-}
-class { 'fstab':
-    manage_cifs => true, # manage the cifs packages
-    manage_nfs => false, # don't manage the nfs packages
-}
-fstab::mount { '/backup/primary':
-    ensure           => 'mounted',
-    device           => '$PrimaryDatabaseBackupsNFSSharePath',
-    fstype           => 'nfs'
-}
-fstab::mount { '/backup/primary':
-    ensure           => 'mounted',
-    device           => '$PrimaryArchivelogBackupsNFSSharePath',
-    fstype           => 'nfs'
-}
-fstab::mount { '/backup/primary':
-    ensure           => 'mounted',
-    device           => '$PrimaryOSBackupsNFSSharePath',
-    fstype           => 'nfs'
-}
-fstab::mount { '/patches':
-    ensure           => 'mounted',
-    device           => '$PatchesNFSSharePath',
-    fstype           => 'nfs'
-}
-host { `$::fqdn:
-      ensure       => 'present',
-      target       => '/etc/hosts',
-      ip           => `$::ipaddress,
-      host_aliases => [`$::hostname]
-    }
-class { 'sudo': }
-sudo::conf { 'domainadmins':
-  priority => 10,
-  content  => "%Domain^Admins ALL=(ALL) ALL",
-}
-sudo::conf { 'linuxserveradministrator':
-  priority => 10,
-  content  => '%TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL',
-}
-package { 'realmd': ensure => 'installed' }
-package { 'sssd': ensure => 'installed' }
-package { 'oddjob': ensure => 'installed' }
-package { 'oddjob-mkhomedir': ensure => 'installed' }
-package { 'adcli': ensure => 'installed' }
-package { 'samba-common': ensure => 'installed' }
-package { 'ntpdate': ensure => 'installed' }
-package { 'ntp': ensure => 'installed' }
-package { 'binutils': ensure => 'installed' } 
-package { 'compat-libcap1.i686': ensure => 'installed' }
-package { 'compat-libstdc++-33.i686': ensure => 'installed' }
-package { 'compat-libstdc++-33': ensure => 'installed' }
-package { 'gcc': ensure => 'installed' }
-package { 'gcc-c++': ensure => 'installed' }
-package { 'glibc.i686': ensure => 'installed' }
-package { 'glibc': ensure => 'installed' }
-package { 'glibc-devel.i686': ensure => 'installed' }
-package { 'glibc-devel': ensure => 'installed' }
-package { 'ksh': ensure => 'installed' }
-package { 'libaio.i686': ensure => 'installed' }
-package { 'libaio': ensure => 'installed' }
-package { 'libaio-devel.i686': ensure => 'installed' }
-package { 'libaio-devel': ensure => 'installed' }
-package { 'libgcc.i686': ensure => 'installed' }
-package { 'libgcc': ensure => 'installed' }
-package { 'libstdc++.i686': ensure => 'installed' }
-package { 'libstdc++': ensure => 'installed' }
-package { 'libstdc++.i686': ensure => 'installed' }
-package { 'libstdc++': ensure => 'installed' }
-package { 'libXi.i686': ensure => 'installed' }
-package { 'libXi': ensure => 'installed' }
-package { 'libXtst.i686': ensure => 'installed' }
-package { 'libXtst': ensure => 'installed' }
-package { 'make': ensure => 'installed' }
-package { 'sysstat': ensure => 'installed' }
-service { 'ntpd': enable => true,ensure => 'running' }
-
-"@
-
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $OSBackupsSMBSharePath"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "mkdir -p $PatchesNFSSharePath"
-#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreateSMBServiceAccountUserNameAndPasswordFile
-#    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "chmod 400 /etc/SMBServiceAccountCredentials.txt"
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command $CreatePuppetConfigurationCommand
-    Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "puppet apply /etc/puppet/manifests/OracleODBEE.pp"
-
-
-
-
-    Remove-SSHSession $SSHSession | Out-Null
 }
 
 function set-NetaTalkFileServerConfiguration {
@@ -1179,5 +1032,183 @@ set realname = "Mailer Daemon"
         $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
         New-SSHSession -ComputerName $Computername -Credential $Credential
         Remove-SSHSession -SSHSession (Get-SSHSession)
+    }
+ }
+
+ function Install-PuppetonLinux{
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession
+    )
+    process{
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "yes | yum -y install puppet"    
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "mkdir /etc/puppet/manifests"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "puppet module install ceh-fstab"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "puppet module install saz-ssh"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "puppet module install saz-sudo"
+    }
+}
+
+function Set-LinuxFSTABWithPuppet {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipelineByPropertyName)]$Applicationname,
+        [parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession
+    )
+    process{
+        $PuppetFSTABConfig = @"
+cat >/etc/puppet/manifests/FSTABConfig.pp <<
+class { 'fstab':
+    manage_cifs => true, # manage the cifs packages
+    manage_nfs => false, # don't manage the nfs packages
+}
+
+"@
+        $MountDefinitions = Get-LinuxMountDefinitions -ApplicationName $Node.Applicationname
+        foreach ($Mount in $MountDefinitions.NFS){
+            $PuppetFSTABConfig += @"
+fstab::mount { '$($Mount.Mountpoint)':
+ensure           => 'mounted',
+device           => '$($Mount.Computername):$($Mount.Name)',
+fstype           => 'nfs'
+}
+
+"@            
+        }
+        $SSHCommand = "puppet apply /etc/puppet/manifests/FSTABConfig.pp"
+        Invoke-SSHCommand -SSHSession $SShSession -Command $SSHCommand
+    }
+}
+
+function Get-LinuxMountDefinitions {
+    param(
+        $ApplicationName
+    )
+    $LinuxMountDefinitions | where{-not $ApplicationName -or $_.Applicationname -eq $ApplicationName}
+}
+
+$LinuxMountDefinitions = [pscustomobject][ordered]@{
+    ApplicationName = "OracleODBEE"
+    NFS = [pscustomobject][ordered]@{
+            Name = "OracleDatabaseBackups"
+            Computername = "inf-orabackups.tervis.prv"
+            Mountpoint = "/backup/primary/database"
+        },
+        [pscustomobject][ordered]@{
+            Name = "OracleArchivelogBackups"
+            Computername = "inf-orabackups.tervis.prv"
+            Mountpoint = "/backup/primary/archivelogs"
+        },
+        [pscustomobject][ordered]@{
+            Name = "OracleOSBackups"
+            Computername = "inf-orabackups.tervis.prv"
+            Mountpoint = "/backup/primary/OS"
+        },
+        [pscustomobject][ordered]@{
+            Name = "EBSPatchBackup"
+            Computername = "dfs-10.tervis.prv"
+            Mountpoint = "/patches"
+        }
+    },
+    [pscustomobject][ordered]@{
+        ApplicationName = "OracleIAS"
+        NFS = [pscustomobject][ordered]@{
+                Name = "OracleDatabaseBackups"
+                Computername = "inf-orabackups.tervis.prv"
+                Mountpoint = "/backup/primary/database"
+            },
+            [pscustomobject][ordered]@{
+                Name = "OracleArchivelogBackups"
+                Computername = "inf-orabackups.tervis.prv"
+                Mountpoint = "/backup/primary/archivelogs"
+            },
+            [pscustomobject][ordered]@{
+                Name = "OracleOSBackups"
+                Computername = "inf-orabackups.tervis.prv"
+                Mountpoint = "/backup/primary/OS"
+            },
+            [pscustomobject][ordered]@{
+                Name = "EBSPatchBackup"
+                Computername = "dfs-10.tervis.prv"
+                Mountpoint = "/patches"
+            }
+    }
+
+function Invoke-CreateOracleUserAccounts {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.Applicationname
+        $EnvironmentDefinition = $ApplicationDefinition.Environments | where Name -eq $Node.EnvironmentName
+
+        $OracleUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.OracleUserCredential -AsPlainText
+        $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.ApplmgrUserCredential -AsPlainText
+        $PuppetUserAccountConfig = @"
+cat >/etc/puppet/manifests/UserAccounts.pp <<
+group { 'dba':
+    ensure => 'present',
+    gid    => '500',
+}
+group { 'appsdev':
+    ensure => 'present',
+    gid    => '501',
+}
+user { '$($OracleUserCredential.Username)':
+    ensure           => 'present',
+    uid              => '501',
+    gid              => '500',
+    home             => '/u01/app/oracle',
+    password         => '$($OracleUserCredential.Password)',
+    password_max_age => '99999',
+    password_min_age => '0',
+    shell            => '/bin/bash',
+}
+user { '$($ApplmgrUserCredential.Username)':
+    ensure           => 'present',
+    uid              => '500',
+    gid              => '500',
+    home             => '/u01/app/applmgr',
+    password         => '$($ApplmgrUserCredential.Username)',
+    password_max_age => '99999',
+    password_min_age => '0',
+    shell            => '/bin/bash',
+}
+"@
+    $SSHCommand = "puppet apply /etc/puppet/manifests/UserAccounts.pp"
+    Invoke-SSHCommand -SSHSession $Node.
+    SShSession -Command $SSHCommand
+    }
+}
+
+function Set-OracleSudoersFile {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.Applicationname
+        $EnvironmentDefinition = $ApplicationDefinition.Environments | where Name -eq $Node.EnvironmentName
+
+        $OracleUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.OracleUserCredential -AsPlainText
+        $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.ApplemgrUserCredential -AsPlainText
+        $PuppetConfigFileName = "sudoersconfig.pp"
+        $PuppetSudoersConfig = @"
+cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
+class { 'sudo': }
+sudo::conf { 'linuxserveradministrator':
+ priority => 10,
+ content  => '%TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL',
+}
+class { 'sudo': }
+sudo::conf { 'Privilege_OracleEnvironment_Root':
+ priority => 11,
+ content  => '%TERVIS\\Privilege_OracleEnvironment_Root ALL=(ALL) ALL',
+}
+"@
+    $SSHCommand = "puppet apply /etc/puppet/manifests/$($PuppetConfigFileName)"
+    Invoke-SSHCommand -SSHSession $SShSession -Command $SSHCommand
     }
 }
