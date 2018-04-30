@@ -993,7 +993,7 @@ oracle:MailerDaemon@tervis.com:smtp.office365.com:587
 }
 
 function Invoke-ConfigureMUTTRCForOffice365 {
-    [CmdletBinding()]
+    [CmdletBinding
     param(
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
@@ -1025,7 +1025,7 @@ set realname = "Mailer Daemon"
  function Invoke-InstallandConfigureSSMTPonLinux{
     [CmdletBinding()]
     param(
-         [parameter(mandatory)]$Computername
+         [parameter(mandatory,ValueFromPipelineByPropertyName)]$Computername
      )
     begin{}
     process{
@@ -1178,8 +1178,7 @@ user { '$($ApplmgrUserCredential.Username)':
 }
 "@
     $SSHCommand = "puppet apply /etc/puppet/manifests/UserAccounts.pp"
-    Invoke-SSHCommand -SSHSession $Node.
-    SShSession -Command $SSHCommand
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommand
     }
 }
 
@@ -1193,7 +1192,7 @@ function Set-OracleSudoersFile {
         $EnvironmentDefinition = $ApplicationDefinition.Environments | where Name -eq $Node.EnvironmentName
 
         $OracleUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.OracleUserCredential -AsPlainText
-        $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.ApplemgrUserCredential -AsPlainText
+        $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.ApplmgrUserCredential -AsPlainText
         $PuppetConfigFileName = "sudoersconfig.pp"
         $PuppetSudoersConfig = @"
 cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
