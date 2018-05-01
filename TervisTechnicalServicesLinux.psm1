@@ -305,7 +305,7 @@ function Invoke-OracleODBEEProvision{
     $Nodes | Set-LinuxFSTABWithPuppet
     $Nodes | Invoke-CreateOracleUserAccounts
     $Nodes | Set-OracleSudoersFile
-    $Nodes | Invoke-InstallandConfigureSSMTPonLinux
+    $Nodes | Invoke-ConfigureSSMTPForOffice365
     $Nodes | Invoke-ConfigureMUTTRCForOffice365
 }
 
@@ -350,6 +350,8 @@ function Invoke-OVMApplicationNodeVMProvision {
         $TervisVMParameters | Write-VerboseAdvanced -Verbose:($VerbosePreference -ne "SilentlyContinue")
         $VM = New-OVMVirtualMachineClone @TervisVMParameters
         New-OVMVirtualNIC -VMID $($VM.id.value) -Network $DHCPScope.ScopeId
+        $VM = Get-OVMVirtualMachines -ID $VM.id.value
+        Set-TervisDHCPForOracleVM -VM $VM -DHCPScope $DHCPScope
         Start-OVMVirtualMachine -ID $VM.id.value
         New-OVMVirtualMachineConsole -Name $VM.id.name
         $Hostname = $VM.id.name + ".tervis.prv"
@@ -379,8 +381,8 @@ function Invoke-OVMApplicationNodeVMProvision {
             value = $Hostname
         } | convertto-json
         Invoke-OVMSendMessagetoVM -VMID $VM.id.value -JSON $InitialConfigJSON
-
         $Node | Add-OVMNodeVMProperty -PassThru | Add-NodeoracleIPAddressProperty
+        Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
 #        Wait-ForPortNotAvailable -PortNumbertoMonitor 22 -ComputerName $Node.IpAddress
 #        Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
     }
@@ -954,7 +956,8 @@ function Invoke-ConfigureSSMTPForOffice365 {
     [CmdletBinding()]
     param(
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
-        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID,
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$SSHSession
     )
     begin{
         $MailerdaemonCredential = Get-PasswordstateEntryDetails -PasswordID 3971
@@ -981,23 +984,24 @@ oracle:MailerDaemon@tervis.com:smtp.office365.com:587
 "@
     }
     process{
-        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
-        New-SSHSession -ComputerName $Computername -Credential $Credential
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $SSMTPMoveCommand
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $SSMTPCONF
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixSSMTP
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $Revaliases
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixRevaliases
-        Remove-SSHSession -SSHSession (Get-SSHSession)
+#        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
+#        New-SSHSession -ComputerName $Computername -Credential $Credential
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $SSMTPMoveCommand
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $SSMTPCONF
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $DOS2UnixSSMTP
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $Revaliases
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $DOS2UnixRevaliases
+#        Remove-SSHSession -SSHSession (Get-SSHSession)
     }
 }
 
 function Invoke-ConfigureMUTTRCForOffice365 {
-    [CmdletBinding
+    [CmdletBinding()]
     param(
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
-        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID
-    )
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID,
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$SSHSession
+)
     begin{
         $DOS2UnixDOTMUTTRCApplmgr = "dos2unix ~applmgr/.muttrc"
         $DOTMUTTRCApplmgr = @"
@@ -1013,28 +1017,16 @@ set realname = "Mailer Daemon"
 "@
     }
     process{
-        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
-        New-SSHSession -ComputerName $Computername -Credential $Credential
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOTMUTTRCApplmgr
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixDOTMUTTRCApplmgr
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOTMUTTRCOracle
-        Invoke-SSHCommand -SSHSession (Get-SSHSession) -Command $DOS2UnixDOTMUTTRCOracle
-        Remove-SSHSession -SSHSession (Get-SSHSession)
+#        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
+#        New-SSHSession -ComputerName $Computername -Credential $Credential
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $DOTMUTTRCApplmgr
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $DOS2UnixDOTMUTTRCApplmgr
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $DOTMUTTRCOracle
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $DOS2UnixDOTMUTTRCOracle
+#        Remove-SSHSession -SSHSession (Get-SSHSession)
     }
 }
- function Invoke-InstallandConfigureSSMTPonLinux{
-    [CmdletBinding()]
-    param(
-         [parameter(mandatory,ValueFromPipelineByPropertyName)]$Computername
-     )
-    begin{}
-    process{
-        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
-        New-SSHSession -ComputerName $Computername -Credential $Credential
-        Remove-SSHSession -SSHSession (Get-SSHSession)
-    }
- }
-
+ 
  function Install-PuppetonLinux{
     [CmdletBinding()]
     param(
@@ -1177,8 +1169,9 @@ user { '$($ApplmgrUserCredential.Username)':
     shell            => '/bin/bash',
 }
 "@
-    $SSHCommand = "puppet apply /etc/puppet/manifests/UserAccounts.pp"
-    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommand
+    $PuppetApplySSHCommand = "puppet apply /etc/puppet/manifests/UserAccounts.pp"
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $PuppetUserAccountConfig
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $PuppetApplySSHCommand
     }
 }
 
@@ -1208,6 +1201,7 @@ sudo::conf { 'Privilege_OracleEnvironment_Root':
 }
 "@
     $SSHCommand = "puppet apply /etc/puppet/manifests/$($PuppetConfigFileName)"
-    Invoke-SSHCommand -SSHSession $SShSession -Command $SSHCommand
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommand
     }
 }
+
