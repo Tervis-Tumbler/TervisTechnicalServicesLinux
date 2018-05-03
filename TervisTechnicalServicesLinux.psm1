@@ -319,8 +319,9 @@ function Invoke-OracleApplicationProvision {
 
     $Nodes |
     where {-not $_.VM} |
-    Invoke-OVMApplicationNodeVMProvision -ApplicationName $ApplicationName
-    if ( $Nodes | where {-not $_.VM} ) {
+#    Invoke-OVMApplicationNodeVMProvision -ApplicationName $ApplicationName
+    Invoke-OVMApplicationNodeVMProvision
+if ( $Nodes | where {-not $_.VM} ) {
         throw "Not all nodes have VMs even after Invoke-ApplicationNodeVMProvision"
     }
     $Nodes | Invoke-ApplicationNodeProvision
@@ -331,14 +332,11 @@ function Invoke-OVMApplicationNodeVMProvision {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory,ValueFromPipeline)]$Node,
-        [Parameter(Mandatory)]$ApplicationName,
+#        [Parameter(Mandatory)]$ApplicationName,
         [Switch]$PassThru
     )
-    begin {
-        $ADDomain = Get-ADDomain
-        $ApplicationDefinition = Get-TervisApplicationDefinition -Name $ApplicationName
-    }
     process {
+        $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.ApplicationName
         $RootPasswordstateEntryDetails = Get-PasswordstateEntryDetails $Node.LocalAdminPasswordStateID
         #$VMTemplateCredential = Get-PasswordstateCredential -PasswordID $Node.LocalAdminPasswordStateID
         $DHCPScope = Get-TervisDhcpServerv4Scope -Environment $Node.EnvironmentName
@@ -348,41 +346,16 @@ function Invoke-OVMApplicationNodeVMProvision {
             EnvironmentName = $Node.EnvironmentName
         }
         $TervisVMParameters | Write-VerboseAdvanced -Verbose:($VerbosePreference -ne "SilentlyContinue")
-        $VM = New-OVMVirtualMachineClone @TervisVMParameters
-        New-OVMVirtualNIC -VMID $($VM.id.value) -Network $DHCPScope.ScopeId
-        $VM = Get-OVMVirtualMachines -ID $VM.id.value
+        $ClonedVMWithoutNIC = New-OVMVirtualMachineClone @TervisVMParameters
+        New-OVMVirtualNIC -VMID $($ClonedVMWithoutNIC.id.value) -Network $DHCPScope.ScopeId
+        $VM = Get-OVMVirtualMachines -ID $ClonedVMWithoutNIC.id.value
         Set-TervisDHCPForOracleVM -VM $VM -DHCPScope $DHCPScope
         Start-OVMVirtualMachine -ID $VM.id.value
         New-OVMVirtualMachineConsole -Name $VM.id.name
         $Hostname = $VM.id.name + ".tervis.prv"
-        Start-Sleep -Seconds 60
-        $InitialConfigJSON = [pscustomobject][ordered]@{
-            key = "com.oracle.linux.network.bootproto.0"
-            value = "dhcp"
-        },
-        [pscustomobject][ordered]@{
-            key = "com.oracle.linux.network.onboot.0"
-            value = "yes"
-        },
-        [pscustomobject][ordered]@{
-            key = "com.oracle.linux.network.device.0"
-            value = "eth0"
-        },
-        [pscustomobject][ordered]@{
-            key = "com.oracle.linux.root-password"
-            value = $RootPasswordstateEntryDetails.Password
-        },
-        [pscustomobject][ordered]@{
-            key = "com.oracle.linux.network.hostname"
-            value = "$Hostname"
-        },
-        [pscustomobject][ordered]@{
-            key = "com.oracle.linux.network.host.0"
-            value = $Hostname
-        } | convertto-json
-        Invoke-OVMSendMessagetoVM -VMID $VM.id.value -JSON $InitialConfigJSON
         $Node | Add-OVMNodeVMProperty -PassThru | Add-NodeoracleIPAddressProperty
         Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
+
 #        Wait-ForPortNotAvailable -PortNumbertoMonitor 22 -ComputerName $Node.IpAddress
 #        Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
     }
@@ -811,6 +784,7 @@ $Initiatornamestring
 }
 
 function Set-LinuxHostname {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
@@ -819,6 +793,25 @@ function Set-LinuxHostname {
         $Command = @"
 hostname $ComputerName
 echo $ComputerName > /etc/hostname
+"@
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    }
+}
+
+function Set-LinuxHostsFile {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress
+    )
+    process {
+        $Domain = Get-ADDomain |
+        select -ExpandProperty forest
+        $FQDN = "$Computername.$Domain"
+        $HostsFileString = "$IPAddress $Computername $FQDN"
+        $Command = @"
+echo "$HostsFileString > /etc/hosts
 "@
         Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
     }
@@ -840,6 +833,7 @@ function Join-LinuxToADDomain {
 
         $Command = @"
 echo '$($DomainJoinCredential.GetNetworkCredential().password)' | kinit $UserName@$DomainName
+sleep 5
 realm join $DomainName --computer-ou="$($OrganizationalUnit.DistinguishedName)"
 "@
         Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
@@ -860,6 +854,7 @@ if z=`$(curl -s 'https://install.zerotier.com/' | gpg); then echo "`$z" | sudo b
 }
 
 function Set-LinuxTimeZone {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
         [Parameter(Mandatory)]$Country,
