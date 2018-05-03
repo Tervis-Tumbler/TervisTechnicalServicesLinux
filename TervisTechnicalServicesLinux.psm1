@@ -832,9 +832,9 @@ function Join-LinuxToADDomain {
         $OrganizationalUnit = Get-TervisApplicationOrganizationalUnit -ApplicationName $ApplicationName
 
         $Command = @"
-echo '$($DomainJoinCredential.GetNetworkCredential().password)' | kinit $UserName@$DomainName
-sleep 5
-realm join $DomainName --computer-ou="$($OrganizationalUnit.DistinguishedName)"
+echo '$($DomainJoinCredential.GetNetworkCredential().password)' | kinit $UserName@$DomainName;
+sleep 2;
+realm join $DomainName --computer-ou="$($OrganizationalUnit.DistinguishedName)";
 "@
         Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
     }
