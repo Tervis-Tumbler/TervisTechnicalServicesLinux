@@ -305,6 +305,8 @@ function Invoke-OracleODBEEProvision{
     $Nodes | Set-LinuxFSTABWithPuppet
     $Nodes | Invoke-CreateOracleUserAccounts
     $Nodes | Set-OracleSudoersFile
+    $Nodes | Install-EMCHostAgentOnLinux
+    $Nodes | New-LinuxISCSISetup
     $Nodes | Invoke-ConfigureSSMTPForOffice365
     $Nodes | Invoke-ConfigureMUTTRCForOffice365
 }
@@ -352,7 +354,7 @@ function Invoke-OVMApplicationNodeVMProvision {
         Set-TervisDHCPForOracleVM -VM $VM -DHCPScope $DHCPScope
         Start-OVMVirtualMachine -ID $VM.id.value
         New-OVMVirtualMachineConsole -Name $VM.id.name
-        $Hostname = $VM.id.name + ".tervis.prv"
+#        $Hostname = $VM.id.name + ".tervis.prv"
         $Node | Add-OVMNodeVMProperty -PassThru | Add-NodeoracleIPAddressProperty
         Wait-ForPortAvailable -ComputerName $Node.IpAddress -PortNumbertoMonitor 22
 
@@ -590,12 +592,14 @@ function Get-LinuxPVList {
 
 function New-LinuxISCSISetup {
     param (
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
-    )
-    $IPAddress = (Resolve-DnsName $ComputerName).ipaddress
-    $Initiatornamestring = "InitiatorName=iqn.1988-12.com.oracle:$($ComputerName)"
+#        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession
+)
+    process{
+        $Initiatornamestring = "InitiatorName=iqn.1988-12.com.oracle:$($ComputerName)"
 
-$multipathconfcontent = @"
+        $multipathconfcontent = @"
 cat >/etc/multipath.conf <<
 defaults {
         polling_interval        10
@@ -609,16 +613,16 @@ blacklist {
         %include "/etc/blacklisted.wwids"
 }
 "@
-$agentIDContent = @"
+        $agentIDContent = @"
 cat >/agentID.txt <<
 $ComputerName
 $IPAddress
 "@
-$ISCSIInitiatorstring = @"
+        $ISCSIInitiatorstring = @"
 cat >/etc/iscsi/initiatorname.iscsi << 
 $Initiatornamestring
 "@
-$ISCSIConfContent = @"
+        $ISCSIConfContent = @"
 cat >/etc/iscsi/iscsi.conf <<
 node.startup = automatic
 node.conn[0].startup = automatic
@@ -643,7 +647,7 @@ discovery.sendtargets.iscsi.MaxRecvDataSegmentLength = 32768
 node.conn[0].iscsi.HeaderDigest = None
 node.session.iscsi.FastAbort = Yes
 "@
-$ISCSIDConfContent = @"
+        $ISCSIDConfContent = @"
 cat >/etc/iscsi/iscsid.conf <<
 node.startup = automatic
 node.conn[0].startup = automatic
@@ -669,26 +673,23 @@ node.conn[0].iscsi.HeaderDigest = None
 node.session.iscsi.FastAbort = Yes
 "@
 
-    if ((Get-TervisLinuxPackageInstalled -ComputerName $ComputerName -PackageName "iscsi-initiator-util").ExitStatus -ne 0){
-        Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "sudo yum install iscsi-initiator-utils"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $agentIDContent
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $multipathconfcontent
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $ISCSIInitiatorstring
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $ISCSIConfContent
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $ISCSIDConfContent
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "chkconfig multipathd on;"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "chkconfig hostagent on;"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "chkconfig iscsid on;"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "service hostagent start;"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "service iscsid start;"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "service multipathd start;"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -D"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -o update -n discovery.startup -v automatic"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m node -l"
+    #    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -D"
+    #    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -o update -n discovery.startup -v automatic"
     }
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $agentIDContent
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $multipathconfcontent
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $ISCSIInitiatorstring
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $ISCSIConfContent
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command $ISCSIDConfContent
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig multipathd on;"
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig hostagent on;"
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "chkconfig iscsid on;"
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service hostagent start;"
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service iscsid start;"
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "service multipathd start;"
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -D"
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -o update -n discovery.startup -v automatic"
-#    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -D"
-#    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -o update -n discovery.startup -v automatic"
-
-    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m node -l"
 }
 
 function Get-TervisLinuxPackageInstalled {
@@ -1197,6 +1198,33 @@ sudo::conf { 'Privilege_OracleEnvironment_Root':
 "@
     $SSHCommand = "puppet apply /etc/puppet/manifests/$($PuppetConfigFileName)"
     Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommand
+    }
+}
+
+function Install-EMCHostAgentOnLinux {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        $FQDN = $Node.ComputerName + "tervis.prv"
+        $HostAgentFilePath = "\\tervis.prv\applications\Installers\EMC\"
+        $HostAgentFileName = "HostAgent-Linux-64-x86-en_US-1.3.9.1.0155-1.x86_64.rpm"
+        $RemotePath = "/opt"
+        $RemoteFile = "$RemotePath/$HostAgentFileName"
+        $AgentIDSSHCommand = @"
+cat >/agentID.txt <<
+$($FQDN)
+$($Node.IPAddress)
+"@
+        $PutParams = @{
+            SFTPSession = $Node.SFTPSession
+            LocalFile = $HostAgentFilePath + $HostAgentFileName
+            RemotePath = $RemotePath
+        }
+        Set-SFTPFile @PutParams        
+        Invoke-SSHCommand -SSHSession $Node.SSHSession -Command "rpm -Uvh $RemoteFile"
+        Invoke-SSHCommand -SSHSession $Node.SSHSession -Command $AgentIDSSHCommand
     }
 }
 
