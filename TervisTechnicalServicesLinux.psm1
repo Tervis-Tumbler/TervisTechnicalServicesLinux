@@ -300,11 +300,14 @@ function Invoke-OracleODBEEProvision{
         $EnvironmentName
     )
     Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
-    $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession
+    $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
     $Nodes | Install-PuppetonLinux
-    $Nodes | Set-LinuxFSTABWithPuppet
     $Nodes | Invoke-CreateOracleUserAccounts
+    $Nodes | Set-LinuxFSTABWithPuppet
     $Nodes | Set-OracleSudoersFile
+    $Nodes | Set-LinuxHostsFileWithPuppet
+    $Nodes | Set-LinuxSSHDConfig
+    $Nodes | Set-LinuxSysCtlWithPuppet
     $Nodes | Install-EMCHostAgentOnLinux
     $Nodes | New-LinuxISCSISetup
     $Nodes | Invoke-ConfigureSSMTPForOffice365
@@ -812,7 +815,7 @@ function Set-LinuxHostsFile {
         $FQDN = "$Computername.$Domain"
         $HostsFileString = "$IPAddress $Computername $FQDN"
         $Command = @"
-echo "$HostsFileString > /etc/hosts
+echo "$HostsFileString" > /etc/hosts
 "@
         Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
     }
@@ -952,6 +955,18 @@ function Invoke-ConfigureSSMTPForOffice365 {
     [CmdletBinding()]
     param(
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$SSHSession
+    )
+#    Install RPM - yum package not available
+#    curl -O http://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm
+#    rpm -Uvh epel-release-7-11.noarch.rpm
+
+}
+
+function Invoke-ConfigureSSMTPForOffice365 {
+    [CmdletBinding()]
+    param(
+        [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$LocalAdminPasswordStateID,
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$SSHSession
     )
@@ -1045,26 +1060,25 @@ function Set-LinuxFSTABWithPuppet {
         [parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession
     )
     process{
-        $PuppetFSTABConfig = @"
-cat >/etc/puppet/manifests/FSTABConfig.pp <<
-class { 'fstab':
-    manage_cifs => true, # manage the cifs packages
-    manage_nfs => false, # don't manage the nfs packages
-}
-
-"@
-        $MountDefinitions = Get-LinuxMountDefinitions -ApplicationName $Node.Applicationname
+        $MountDefinitions = Get-LinuxMountDefinitions -ApplicationName $Applicationname
+        foreach ($Mount in $MountDefinitions.NFS){
+            $MKDirCommand += "mkdir -p $($Mount.Mountpoint);"
+        }
         foreach ($Mount in $MountDefinitions.NFS){
             $PuppetFSTABConfig += @"
-fstab::mount { '$($Mount.Mountpoint)':
-ensure           => 'mounted',
-device           => '$($Mount.Computername):$($Mount.Name)',
-fstype           => 'nfs'
-}
 
-"@            
+    fstab::mount { '$($Mount.Mountpoint)':
+    ensure           => 'mounted',
+    device           => '$($Mount.Computername):$($Mount.Name)',
+    fstype           => 'nfs',
+    options          => 'ro'
+}
+"@
         }
+       
         $SSHCommand = "puppet apply /etc/puppet/manifests/FSTABConfig.pp"
+        Invoke-SSHCommand -SSHSession $SshSession -Command $MKDirCommand
+        Invoke-SSHCommand -SSHSession $SShSession -Command $PuppetFSTABConfig
         Invoke-SSHCommand -SSHSession $SShSession -Command $SSHCommand
     }
 }
@@ -1177,27 +1191,145 @@ function Set-OracleSudoersFile {
         [parameter(Mandatory,ValueFromPipeline)]$Node
     )
     process{
-        $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.Applicationname
-        $EnvironmentDefinition = $ApplicationDefinition.Environments | where Name -eq $Node.EnvironmentName
-
-        $OracleUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.OracleUserCredential -AsPlainText
-        $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.ApplmgrUserCredential -AsPlainText
         $PuppetConfigFileName = "sudoersconfig.pp"
-        $PuppetSudoersConfig = @"
-cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
-class { 'sudo': }
-sudo::conf { 'linuxserveradministrator':
- priority => 10,
- content  => '%TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL',
+#        $PuppetSudoersConfig = @"
+#cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
+#class { 'sudo': }
+#sudo::conf { 'linuxserveradministrator':
+# priority => 10,
+# content  => '%TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL',
+#}
+#class { 'sudo': }
+#sudo::conf { 'Privilege_OracleEnvironment_Root':
+# priority => 11,
+# content  => '%TERVIS\\Privilege_OracleEnvironment_Root ALL=(ALL) ALL',
+#}
+#"@
+    $PuppetSudoersConfig = @"
+cat >/etc/sudoers <<
+Defaults   !visiblepw
+Defaults    always_set_home
+Defaults    match_group_by_gid
+Defaults    env_reset
+Defaults    env_keep =  "COLORS DISPLAY HOSTNAME HISTSIZE KDEDIR LS_COLORS"
+Defaults    env_keep += "MAIL PS1 PS2 QTDIR USERNAME LANG LC_ADDRESS LC_CTYPE"
+Defaults    env_keep += "LC_COLLATE LC_IDENTIFICATION LC_MEASUREMENT LC_MESSAGES"
+Defaults    env_keep += "LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE"
+Defaults    env_keep += "LC_TIME LC_ALL LANGUAGE LINGUAS _XKB_CHARSET XAUTHORITY"
+Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin
+root    ALL=(ALL)       ALL
+%wheel  ALL=(ALL)       ALL
+%TERVIS\\\Privilege_OracleEnvironment_Root ALL=(ALL) ALL
+%TERVIS\\\LinuxServerAdministrator ALL=(ALL) ALL
+"@
+#    $PuppetApplyCommand= "puppet apply /etc/puppet/manifests/$($PuppetConfigFileName)"
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $PuppetSudoersConfig
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command "dos2unix /etc/sudoers"
+    #    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $PuppetApplyCommand
+    }
 }
-class { 'sudo': }
-sudo::conf { 'Privilege_OracleEnvironment_Root':
- priority => 11,
- content  => '%TERVIS\\Privilege_OracleEnvironment_Root ALL=(ALL) ALL',
+
+function Set-LinuxSSHDConfig {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        $PuppetConfigFileName = "puppetsshdconfig.pp"
+        $PuppetSSHDConfig = @"
+cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
+class { 'ssh::server':
+  storeconfigs_enabled => false,
+  options => {
+    'HostKey' => ['/etc/ssh/ssh_host_rsa_key','/etc/ssh/ssh_host_ecdsa_key','/etc/ssh/ssh_host_ed25519_key'],
+    'Port' => ['22'],
+    'SyslogFacility' => 'AUTHPRIV',
+    'PermitRootLogin' => 'yes',
+    'PasswordAuthentication' => 'yes',
+  }
 }
 "@
     $SSHCommand = "puppet apply /etc/puppet/manifests/$($PuppetConfigFileName)"
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $PuppetSSHDConfig
     Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommand
+    }
+}
+
+function Set-LinuxHostsFileWithPuppet {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        $PuppetConfigFileName = "puppethostsconfig.pp"
+        $PuppetSSHDConfig = @"
+cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
+host { `$::fqdn:
+      ensure       => 'present',
+      target       => '/etc/hosts',
+      ip           => `$::ipaddress,
+      host_aliases => [`$::hostname]
+    }
+"@
+        $SSHCommand = "puppet apply /etc/puppet/manifests/$($PuppetConfigFileName)"
+        Invoke-SSHCommand -SSHSession $Node.SShSession -Command $PuppetSSHDConfig
+        Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommand
+    }
+}
+
+function Set-LinuxSysCtlWithPuppet{
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        $PuppetConfigFileName = "puppetkernelconfig.pp"
+        $PuppetConfig = @"
+        cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
+        augeas { "sysctl":
+                context => "/files/etc/sysctl.conf",
+                changes => [
+                        "set kernel.sem 250 32000 100 128",
+                        "set kernel.shmall  2097152",
+                        "set kernel.msgmni  2878",
+                        "set fs.file-max  6815744",
+                        "set net.ipv4.ip_local_port_range  '10000 65500'",
+                        "set net.core.rmem_default  262144",
+                        "set net.core.rmem_max  4194304",
+                        "set net.core.wmem_default  262144",
+                        "set net.core.wmem_max  1048576",
+                        "set fs.aio-max-nr 1048576"
+                ],
+        }
+
+        augeas { "limits":
+                context => "/files/etc/security/limits.conf",
+                changes => [
+                        "set 1/type hard",
+                        "set 1/item = nofile",
+                        "set 1/value = 65535",
+                        "set 2/type soft",
+                        "set 2/item = nofile",
+                        "set 2/value = 4096",
+                        "set 3/type hard",
+                        "set 3/item = nproc",
+                        "set 3/value = 16384",
+                        "set 4/type soft",
+                        "set 4/item = nproc",
+                        "set 4/value = 2047",
+                        "set 5/type = soft",
+                        "set 5/item = memlock",
+                        "set 5/value = 5000000",
+                        "set 6/type = hard",
+                        "set 6/item = memlock",
+                        "set 6/value = 5000000",
+                ],
+        }
+"@
+        $SSHCommand = "puppet apply /etc/puppet/manifests/$($PuppetConfigFileName)"
+        Invoke-SSHCommand -SSHSession $Node.SShSession -Command $PuppetConfig
+        Invoke-SSHCommand -SSHSession $Node.SShSession -Command "dos2unix $PuppetConfigFileName"
+        Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommand
     }
 }
 
