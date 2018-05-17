@@ -595,7 +595,7 @@ function Get-LinuxPVList {
 
 function New-LinuxISCSISetup {
     param (
-#        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession
 )
@@ -687,7 +687,9 @@ node.session.iscsi.FastAbort = Yes
         Invoke-SSHCommand -SSHSession $SSHSession -Command "service hostagent start;"
         Invoke-SSHCommand -SSHSession $SSHSession -Command "service iscsid start;"
         Invoke-SSHCommand -SSHSession $SSHSession -Command "service multipathd start;"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -D"
         Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -D"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -o update -n discovery.startup -v automatic"
         Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -o update -n discovery.startup -v automatic"
         Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m node -l"
     #    Invoke-TervisLinuxCommand -ComputerName $ComputerName -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -D"
@@ -1285,46 +1287,45 @@ function Set-LinuxSysCtlWithPuppet{
     process{
         $PuppetConfigFileName = "puppetkernelconfig.pp"
         $PuppetConfig = @"
-        cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
-        augeas { "sysctl":
-                context => "/files/etc/sysctl.conf",
-                changes => [
-                        "set kernel.sem 250 32000 100 128",
-                        "set kernel.shmall  2097152",
-                        "set kernel.msgmni  2878",
-                        "set fs.file-max  6815744",
-                        "set net.ipv4.ip_local_port_range  '10000 65500'",
-                        "set net.core.rmem_default  262144",
-                        "set net.core.rmem_max  4194304",
-                        "set net.core.wmem_default  262144",
-                        "set net.core.wmem_max  1048576",
-                        "set fs.aio-max-nr 1048576"
-                ],
-        }
-
-        augeas { "limits":
-                context => "/files/etc/security/limits.conf",
-                changes => [
-                        "set 1/type hard",
-                        "set 1/item = nofile",
-                        "set 1/value = 65535",
-                        "set 2/type soft",
-                        "set 2/item = nofile",
-                        "set 2/value = 4096",
-                        "set 3/type hard",
-                        "set 3/item = nproc",
-                        "set 3/value = 16384",
-                        "set 4/type soft",
-                        "set 4/item = nproc",
-                        "set 4/value = 2047",
-                        "set 5/type = soft",
-                        "set 5/item = memlock",
-                        "set 5/value = 5000000",
-                        "set 6/type = hard",
-                        "set 6/item = memlock",
-                        "set 6/value = 5000000",
-                ],
-        }
+cat >/etc/puppet/manifests/$($PuppetConfigFileName) <<
+augeas { "sysctl":
+        context => "/files/etc/sysctl.conf",
+        changes => [
+                "set kernel.sem 250 32000 100 128",
+                "set kernel.shmall  2097152",
+                "set kernel.msgmni  2878",
+                "set fs.file-max  6815744",
+                "set net.ipv4.ip_local_port_range  '10000 65500'",
+                "set net.core.rmem_default  262144",
+                "set net.core.rmem_max  4194304",
+                "set net.core.wmem_default  262144",
+                "set net.core.wmem_max  1048576",
+                "set fs.aio-max-nr 1048576"
+        ],
+}
+augeas { "limits":
+        context => "/files/etc/security/limits.conf",
+        changes => [
+                "set 1/type hard",
+                "set 1/item = nofile",
+                "set 1/value = 65535",
+                "set 2/type soft",
+                "set 2/item = nofile",
+                "set 2/value = 4096",
+                "set 3/type hard",
+                "set 3/item = nproc",
+                "set 3/value = 16384",
+                "set 4/type soft",
+                "set 4/item = nproc",
+                "set 4/value = 2047",
+                "set 5/type = soft",
+                "set 5/item = memlock",
+                "set 5/value = 5000000",
+                "set 6/type = hard",
+                "set 6/item = memlock",
+                "set 6/value = 5000000",
+        ],
+}
 "@
         $SSHCommand = "puppet apply /etc/puppet/manifests/$($PuppetConfigFileName)"
         Invoke-SSHCommand -SSHSession $Node.SShSession -Command $PuppetConfig
