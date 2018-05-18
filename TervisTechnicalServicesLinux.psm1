@@ -312,6 +312,7 @@ function Invoke-OracleODBEEProvision{
     $Nodes | New-LinuxISCSISetup
     $Nodes | Invoke-ConfigureSSMTPForOffice365
     $Nodes | Invoke-ConfigureMUTTRCForOffice365
+
 }
 
 function Invoke-OracleApplicationProvision {
@@ -1361,3 +1362,14 @@ $($Node.IPAddress)
     }
 }
 
+function Invoke-LinuxGrantAccessToNFSShares {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        $MountDefinitions = Get-LinuxMountDefinitions -ApplicationName $Applicationname
+        foreach ($Mount in $MountDefinitions.NFS){
+            Grant-NfsSharePermission -ComputerName $Mount.Computername -Permission readwrite -clienttype host -AllowRootAccess -Name $Mount.Name -ClientName $Node.Computername
+    }
+}
