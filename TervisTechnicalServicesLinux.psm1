@@ -1371,5 +1371,21 @@ function Invoke-LinuxGrantAccessToNFSShares {
         $MountDefinitions = Get-LinuxMountDefinitions -ApplicationName $Applicationname
         foreach ($Mount in $MountDefinitions.NFS){
             Grant-NfsSharePermission -ComputerName $Mount.Computername -Permission readwrite -clienttype host -AllowRootAccess -Name $Mount.Name -ClientName $Node.Computername
+        }
     }
+}
+
+function Invoke-LinuxMigrateSystemDiskToNewVM {
+    realm leave
+    cp /etc/oratab
+    cp /etc/oraInst.loc
+    cp /etc/hostname
+    cp /etc/hosts
+    FSTab Entries
+    cp /agentID.txt
+    cp /etc/iscsi/initiatorname.iscsi
+    cp /etc/iscsi.conf
+    cp /etc/iscsid.conf
+
+    realm join
 }
