@@ -1074,7 +1074,7 @@ function Set-LinuxFSTABWithPuppet {
     ensure           => 'mounted',
     device           => '$($Mount.Computername):$($Mount.Name)',
     fstype           => 'nfs',
-    options          => 'ro'
+    options          => 'rw'
 }
 "@
         }
@@ -1388,4 +1388,35 @@ function Invoke-LinuxMigrateSystemDiskToNewVM {
     cp /etc/iscsid.conf
 
     realm join
+}
+
+function Set-LinuxSSSDConfig {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        $SSSDConfFile = "/etc/sssd/sssd.conf"
+        $SSSDConfiguration = @"
+cat >$SSSDConfFile <<
+[sssd]
+domains = tervis.prv
+config_file_version = 2
+services = nss, pam
+default_domain_suffix = tervis.prv
+[domain/tervis.prv]
+ad_domain = tervis.prv
+krb5_realm = TERVIS.PRV
+realmd_tags = manages-system joined-with-adcli
+cache_credentials = True
+id_provider = ad
+krb5_store_password_if_offline = True
+default_shell = /bin/bash
+ldap_id_mapping = True
+use_fully_qualified_names = True
+fallback_homedir = /home/%u@%d
+access_provider = ad
+"@
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSSDConfiguration
+    }
 }
