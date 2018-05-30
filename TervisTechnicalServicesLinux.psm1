@@ -1420,3 +1420,14 @@ access_provider = ad
     Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSSDConfiguration
     }
 }
+
+function Install-PowershellCoreForLinux {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory,ValueFromPipeline)]$Node
+    )
+    process{
+        Invoke-SSHCommand -SSHSession ($node.SShSession) -Command "curl https://packages.microsoft.com/config/rhel/7/prod.repo | sudo tee /etc/yum.repos.d/microsoft.repo"
+        Invoke-SSHCommand -SSHSession ($node.SShSession) -Command "sudo yum install -y powershell"
+    }
+}
