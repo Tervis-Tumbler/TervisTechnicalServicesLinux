@@ -1459,19 +1459,19 @@ function Invoke-ProcessOracleODBEETemplateFiles {
 
 function Copy-OracleServerIdentityToNewSystem {
     param (
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$EnvironmentName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SourceComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$TargetComputerName,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SFTPSession,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
         [switch]$Overwrite
     )
     begin {
         $OracleODBEEModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
-        $ServerMigrationSourceFilePath = "$OracleODBEEModulePath\$Computername"
+        $ServerMigrationSourceFilePath = "$OracleODBEEModulePath\MigrationFiles\$TargetComputerName"
         $OracleODBEERootPath = "/"
     }
     process {
         Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $ServerMigrationSourceFilePath -SFTPSession $SFTPSession -Overwrite:$Overwrite
-        Invoke-ProcessOracleODBEETemplateFiles -ComputerName $Computername -
+        Invoke-ProcessOracleODBEETemplateFiles -ComputerName $TargetComputerName -SFTPSession $SFTPSession -IPAddress $IPAddress -Overwrite:$Overwrite
     }
 }
