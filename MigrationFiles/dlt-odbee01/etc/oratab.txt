@@ -1,0 +1,5 @@
+DEVRP:/u03/app/oracle/DEVRPdb/db/tech_st/11.2.0:N
+DEVSOA:/u02/app/oracle/product/11.2.0/dbhome_1:N
+DEVBI:/u05/app/oracle/product/11.2.0/dbhome_1:N
+DEVDWH:/u04/app/oracle/product/11.2.0/dbhome_1:N
+DEV:/u01/app/oracle/DEVdb/11.2.0:N

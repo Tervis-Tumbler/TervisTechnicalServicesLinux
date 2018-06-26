@@ -1,0 +1,75 @@
+<?xml version="1.0" standalone="yes" ?>
+<!-- Copyright (c) 1999, 2013, Oracle and/or its affiliates.
+All rights reserved. -->
+<!-- Do not modify the contents of this file by hand. -->
+<INVENTORY>
+<VERSION_INFO>
+   <SAVED_WITH>11.2.0.4.0</SAVED_WITH>
+   <MINIMUM_VER>2.1.0.6.0</MINIMUM_VER>
+</VERSION_INFO>
+<HOME_LIST>
+<HOME NAME="PRD_DB__u01_app_oracle_PRDdb_11_2_0" LOC="/u01/app/oracle/PRDdb/11.2.0" TYPE="O" IDX="1"/>
+<HOME NAME="agent12c1" LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0" TYPE="O" IDX="2">
+   <REFHOMELIST>
+      <REFHOME LOC="/u01/app/oracle/OEMdb/middleware/sbin"/>
+      <REFHOME LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.xa.discovery.plugin_12.1.0.3.0"/>
+      <REFHOME LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.oh.discovery.plugin_12.1.0.2.0"/>
+      <REFHOME LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.emas.discovery.plugin_12.1.0.3.0"/>
+      <REFHOME LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.db.discovery.plugin_12.1.0.3.0"/>
+      <REFHOME LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.db.agent.plugin_12.1.0.3.0"/>
+      <REFHOME LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.apps.ebs.discovery.plugin_"/>
+      <REFHOME LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.oh.agent.plugin_12.1.0.2.0"/>
+   </REFHOMELIST>
+</HOME>
+<HOME NAME="sbin12c1" LOC="/u01/app/oracle/OEMdb/middleware/sbin" TYPE="O" IDX="3">
+   <DEPHOMELIST>
+      <DEPHOME LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0"/>
+   </DEPHOMELIST>
+</HOME>
+<HOME NAME="OraHome1" LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.xa.discovery.plugin_12.1.0.3.0" TYPE="O" IDX="4">
+   <DEPHOMELIST>
+      <DEPHOME LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0"/>
+   </DEPHOMELIST>
+</HOME>
+<HOME NAME="OraHome2" LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.oh.discovery.plugin_12.1.0.2.0" TYPE="O" IDX="5">
+   <DEPHOMELIST>
+      <DEPHOME LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0"/>
+   </DEPHOMELIST>
+</HOME>
+<HOME NAME="OraHome3" LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.emas.discovery.plugin_12.1.0.3.0" TYPE="O" IDX="6">
+   <DEPHOMELIST>
+      <DEPHOME LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0"/>
+   </DEPHOMELIST>
+</HOME>
+<HOME NAME="OraHome4" LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.db.discovery.plugin_12.1.0.3.0" TYPE="O" IDX="7">
+   <DEPHOMELIST>
+      <DEPHOME LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0"/>
+   </DEPHOMELIST>
+</HOME>
+<HOME NAME="OraHome5" LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.db.agent.plugin_12.1.0.3.0" TYPE="O" IDX="8">
+   <DEPHOMELIST>
+      <DEPHOME LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0"/>
+   </DEPHOMELIST>
+</HOME>
+<HOME NAME="OraHome6" LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.apps.ebs.discovery.plugin_" TYPE="O" IDX="9">
+   <DEPHOMELIST>
+      <DEPHOME LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0"/>
+   </DEPHOMELIST>
+</HOME>
+<HOME NAME="OraHome7" LOC="/u01/app/oracle/OEMdb/middleware/plugins/oracle.sysman.oh.agent.plugin_12.1.0.2.0" TYPE="O" IDX="10">
+   <DEPHOMELIST>
+      <DEPHOME LOC="/u01/app/oracle/OEMdb/middleware/core/12.1.0.3.0"/>
+   </DEPHOMELIST>
+</HOME>
+<HOME NAME="OraDb11g_home1" LOC="/soabin/app/oracle/product/11.2.0/dbhome_1" TYPE="O" IDX="11"/>
+<HOME NAME="PRDRP_DB__rpbin_PRDRPdb_db_tech_st_11_1_0" LOC="/rpbin/PRDRPdb/db/tech_st/11.1.0" TYPE="O" IDX="12"/>
+<HOME NAME="OraDb11g_home2" LOC="/rpbin/PRDRPdb/db/tech_st/11.2.0" TYPE="O" IDX="13"/>
+<HOME NAME="OraDb11g_home4" LOC="/rpbin/PRDRPdb/db/tech_st/11.2.0.4" TYPE="O" IDX="15"/>
+<HOME NAME="OraDb11g_home5" LOC="/u01/app/oracle/product/11.2.0.4" TYPE="O" IDX="16"/>
+<HOME NAME="OraDb11g_home3" LOC="/soabin/app/oracle/product/11.2.0.4" TYPE="O" IDX="17"/>
+<HOME NAME="OraDb11g_home6" LOC="/u01/app/oracle/PRDdb/11.2.0.4" TYPE="O" IDX="18"/>
+<HOME NAME="OUIPlaceHolderDummyHome1" LOC="/soabin/app/oracle/OraPlaceHolderDummyHome_1" TYPE="O" IDX="14" REMOVED="T"/>
+</HOME_LIST>
+<COMPOSITEHOME_LIST>
+</COMPOSITEHOME_LIST>
+</INVENTORY>

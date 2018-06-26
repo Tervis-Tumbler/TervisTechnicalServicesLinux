@@ -303,15 +303,16 @@ function Invoke-OracleODBEEProvision{
     $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
     $Nodes | Install-PuppetonLinux
     $Nodes | Invoke-CreateOracleUserAccounts
-    $Nodes | Set-LinuxFSTABWithPuppet
-    $Nodes | Set-OracleSudoersFile
-    $Nodes | Set-LinuxHostsFileWithPuppet
-    $Nodes | Set-LinuxSSHDConfig
-    $Nodes | Set-LinuxSysCtlWithPuppet
-    $Nodes | Install-EMCHostAgentOnLinux
-    $Nodes | New-LinuxISCSISetup
-    $Nodes | Invoke-ConfigureSSMTPForOffice365
-    $Nodes | Invoke-ConfigureMUTTRCForOffice365
+#    $Nodes | Set-LinuxFSTABWithPuppet
+#    $Nodes | Set-OracleSudoersFile
+#    $Nodes | Set-LinuxHostsFileWithPuppet
+#    $Nodes | Set-LinuxSSHDConfig
+#    $Nodes | Set-LinuxSysCtlWithPuppet
+#    $Nodes | Install-EMCHostAgentOnLinux
+#    $Nodes | New-LinuxISCSISetup
+#    $Nodes | Invoke-ConfigureSSMTPForOffice365
+#    $Nodes | Invoke-ConfigureMUTTRCForOffice365
+    $Nodes |  Invoke-ProcessOracleODBEETemplateFiles
 
 }
 
@@ -974,7 +975,6 @@ function Invoke-ConfigureSSMTPForOffice365 {
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$SSHSession
     )
     begin{
-        $MailerdaemonCredential = Get-PasswordstateEntryDetails -PasswordID 3971
         $SSMTPMoveCommand = "mv /etc/ssmtp/ssmtp.conf /etc/ssmtp/ssmtp.conf.preO365"
         $DOS2UnixSSMTP = "dos2unix /etc/ssmtp/ssmtp.conf"
         $DOS2UnixRevaliases = "dos2unix /etc/ssmtp/revaliases"
@@ -1429,5 +1429,56 @@ function Install-PowershellCoreForLinux {
     process{
         Invoke-SSHCommand -SSHSession ($node.SShSession) -Command "curl https://packages.microsoft.com/config/rhel/7/prod.repo | sudo tee /etc/yum.repos.d/microsoft.repo"
         Invoke-SSHCommand -SSHSession ($node.SShSession) -Command "sudo yum install -y powershell"
+    }
+}
+
+function Invoke-ProcessOracleODBEETemplateFiles {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(ValueFromPipelineByPropertyName)]$EnvironmentName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SFTPSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
+        [switch]$Overwrite
+    )
+    begin {
+        $OracleODBEEModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
+        $OracleODBEEHomeTemplateFilesPath = "$OracleODBEEModulePath\OracleODBEEHome"
+        $OracleODBEETemplateTempPath = "$OracleODBEEModulePath\Temp"
+        $OracleODBEERootPath = "/"
+    }
+    process {
+#        $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName
+#        $NodeNumber = $Nodes.ComputerName.IndexOf($ComputerName) + 1
+
+        $TemplateVariables = @{
+            Computername = $($Computername.ToLower())
+            IPAddress = $IPaddress
+            #           "broker.id" = $NodeNumber
+ #           "log.dirs" = "C:/tmp/kafka-logs"
+ #           dataDir = $dataDir
+ #           ZookeeperNodeNames = $Nodes.ComputerName
+        }
+
+        Invoke-ProcessTemplatePath -Path $OracleODBEEHomeTemplateFilesPath -DestinationPath $OracleODBEETemplateTempPath -TemplateVariables $TemplateVariables
+        Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $OracleODBEETemplateTempPath -SFTPSession $SFTPSession -Overwrite:$Overwrite
+    }
+}
+
+function Copy-OracleServerIdentityToNewSystem {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$EnvironmentName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SFTPSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
+        [switch]$Overwrite
+    )
+    begin {
+        $OracleODBEEModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
+        $ServerMigrationSourceFilePath = "$OracleODBEEModulePath\$Computername"
+        $OracleODBEERootPath = "/"
+    }
+    process {
+        Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $ServerMigrationSourceFilePath -SFTPSession $SFTPSession -Overwrite:$Overwrite
+        Invoke-ProcessOracleODBEETemplateFiles -ComputerName $Computername -
     }
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" standalone="yes" ?>
+<!-- Copyright (c) 1999, 2013, Oracle and/or its affiliates.
+All rights reserved. -->
+<!-- Do not modify the contents of this file by hand. -->
+<SourceConfigs>
+<StagingAreas>
+<StgArea URL="/patches/11204_Soft/examples/install/../stage/products.xml" />
+<StgArea URL="/patches/11204_Soft/database/install/../stage/products.xml" />
+<StgArea URL="/patches/Upgrade_11204/Software_11204/database/install/../stage/products.xml" />
+<StgArea URL="/patches/Upgrade_11204/Software_11204/examples/install/../stage/products.xml" />
+</StagingAreas>
+<ServerConfigs>
+</ServerConfigs>
+</SourceConfigs>
