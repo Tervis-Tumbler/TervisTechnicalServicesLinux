@@ -980,15 +980,8 @@ function Invoke-ConfigureSSMTPForOffice365 {
         $DOS2UnixRevaliases = "dos2unix /etc/ssmtp/revaliases"
         $SSMTPCONF = @"
 cat >/etc/ssmtp/ssmtp.conf <<
-mailhub=smtp.office365.com:587
+mailhub=tervis-com.mail.protection.outlook.com
 RewriteDomain=tervis.com
-FromLineOverride=YES
-UseTLS=YES
-UseSTARTTLS=yes
-TLS_CA_FILE=/etc/pki/tls/certs/ca-bundle.crt
-AuthUser=$($MailerdaemonCredential.Username)
-AuthPass=$($MailerdaemonCredential.Password)
-AuthMethod=LOGIN
 "@
         $Revaliases = @"
 cat >/etc/ssmtp/revaliases <<
