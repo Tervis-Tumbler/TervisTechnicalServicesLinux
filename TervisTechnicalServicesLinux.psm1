@@ -848,6 +848,27 @@ realm join $DomainName --computer-ou="$($OrganizationalUnit.DistinguishedName)";
     }
 }
 
+function Invoke-DisjoinLinuxFromADDomain {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ApplicationName
+    )
+    process {
+        $DomainJoinCredential = Get-PasswordstateCredential -PasswordID 2643
+        $CredentialParts = $DomainJoinCredential.UserName -split "@"
+        $UserName = $CredentialParts[0]
+        $DomainName = $CredentialParts[1].ToUpper()
+
+
+        $Command = @"
+realm leave $DomainName";
+"@
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    }
+}
+
+
 function Install-LinuxZeroTierOne {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession
