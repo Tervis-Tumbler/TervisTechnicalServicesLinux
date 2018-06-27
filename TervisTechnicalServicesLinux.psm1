@@ -312,7 +312,7 @@ function Invoke-OracleODBEEProvision{
 #    $Nodes | New-LinuxISCSISetup
 #    $Nodes | Invoke-ConfigureSSMTPForOffice365
 #    $Nodes | Invoke-ConfigureMUTTRCForOffice365
-    $Nodes |  Invoke-ProcessOracleODBEETemplateFiles
+    $Nodes |  Invoke-ProcessOracleODBEETemplateFiles -Overwrite
 
 }
 
@@ -851,8 +851,7 @@ realm join $DomainName --computer-ou="$($OrganizationalUnit.DistinguishedName)";
 function Invoke-DisjoinLinuxFromADDomain {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ApplicationName
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
     )
     process {
         $DomainJoinCredential = Get-PasswordstateCredential -PasswordID 2643
@@ -1480,19 +1479,31 @@ function Invoke-ProcessOracleODBEETemplateFiles {
 
 function Copy-OracleServerIdentityToNewSystem {
     param (
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SourceComputerName,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$TargetComputerName,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SFTPSession,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
-        [switch]$Overwrite
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputernameOfServerBeingReplaced,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$TemporarilyDeployedComputername,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress
     )
     begin {
         $OracleODBEEModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
-        $ServerMigrationSourceFilePath = "$OracleODBEEModulePath\MigrationFiles\$TargetComputerName"
+        $ServerMigrationSourceFilePath = "$OracleODBEEModulePath\MigrationFiles\$ComputernameOfServerBeingReplaced"
         $OracleODBEERootPath = "/"
     }
     process {
-        Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $ServerMigrationSourceFilePath -SFTPSession $SFTPSession -Overwrite:$Overwrite
-        Invoke-ProcessOracleODBEETemplateFiles -ComputerName $TargetComputerName -SFTPSession $SFTPSession -IPAddress $IPAddress -Overwrite:$Overwrite
+        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search $ComputernameOfServerBeingReplaced -PasswordListID 46 -AsCredential
+        $PasswordstateCredentialofTemporarilyDeployedComputer = Get-PasswordstatePassword -ID 5361 -AsCredential
+        $SSHSessionOfComputerBeingReplaced = New-SSHSession -ComputerName $ComputernameOfServerBeingReplaced -Credential $PasswordstateCredentialOfComputerBeingReplaced
+        $SSHSessionOfTemporarilyDeployedComputer = New-SSHSession -ComputerName $TemporarilyDeployedComputername -Credential $PasswordstateCredentialofTemporarilyDeployedComputer
+        $SFTPSessionOfTemporarilyDeployedComputer = New-SFTPSession -ComputerName $TemporarilyDeployedComputername -Credential $PasswordstateCredentialofTemporarilyDeployedComputer
+        $VMObjectOfServerBeingReplaced = Get-OVMVirtualMachines -Name $ComputernameOfServerBeingReplaced
+        $VMObjectOfTemporarilyDeployedServer = Get-OVMVirtualMachines -Name $TemporarilyDeployedComputername
+        Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfComputerBeingReplaced -ComputerName $ComputernameOfServerBeingReplaced
+        Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfTemporarilyDeployedComputer -ComputerName $TemporarilyDeployedComputername
+        Sync-ADDomainControllers
+        Join-LinuxToADDomain -SSHSession
+        Stop-OVMVirtualMachine -ID $VMObjectOfServerBeingReplaced.id.value
+        Rename-OVMVirtualMachine -VMID $VMObjectOfServerBeingReplaced.id.value -NewName "$ComputernameOfServerBeingReplaced-orig"
+        Rename-OVMVirtualMachine -VMID $VMObjectOfTemporarilyDeployedServer.id.value -NewName "$ComputernameOfServerBeingReplaced"
+        Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $ServerMigrationSourceFilePath -SFTPSession $SFTPSessionOfTemporarilyDeployedComputer -Overwrite
+        Invoke-ProcessOracleODBEETemplateFiles -ComputerName $TemporarilyDeployedComputername -SFTPSession $SFTPSessionOfTemporarilyDeployedComputer -IPAddress $IPAddress -Overwrite
     }
 }

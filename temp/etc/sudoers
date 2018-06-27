@@ -112,4 +112,3 @@ root	ALL=(ALL) 	ALL
 #includedir /etc/sudoers.d
 %TERVIS\\Privilege_OracleEnvironment_Root ALL=(ALL) ALL
 %TERVIS\\LinuxServerAdministrator ALL=(ALL) ALL
-
