@@ -1013,7 +1013,7 @@ oracle:MailerDaemon@tervis.com:smtp.office365.com:587
     process{
 #        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
 #        New-SSHSession -ComputerName $Computername -Credential $Credential
-        Invoke-SSHCommand -SSHSession $SSHSession -Command $SSMTPMoveCommand
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $MoveCommand
         Invoke-SSHCommand -SSHSession $SSHSession -Command $SSMTPCONF
         Invoke-SSHCommand -SSHSession $SSHSession -Command $DOS2UnixSSMTP
         Invoke-SSHCommand -SSHSession $SSHSession -Command $Revaliases
