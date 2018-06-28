@@ -1489,18 +1489,18 @@ function Copy-OracleServerIdentityToNewSystem {
         $OracleODBEERootPath = "/"
     }
     process {
-        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search $ComputernameOfServerBeingReplaced -PasswordListID 46 -AsCredential
+        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search "dlt-odbee01 - root" -PasswordListID 46 -AsCredential
         $PasswordstateCredentialofTemporarilyDeployedComputer = Get-PasswordstatePassword -ID 5361 -AsCredential
         $SSHSessionOfComputerBeingReplaced = New-SSHSession -ComputerName $ComputernameOfServerBeingReplaced -Credential $PasswordstateCredentialOfComputerBeingReplaced
         $SSHSessionOfTemporarilyDeployedComputer = New-SSHSession -ComputerName $TemporarilyDeployedComputername -Credential $PasswordstateCredentialofTemporarilyDeployedComputer
         $SFTPSessionOfTemporarilyDeployedComputer = New-SFTPSession -ComputerName $TemporarilyDeployedComputername -Credential $PasswordstateCredentialofTemporarilyDeployedComputer
         $VMObjectOfServerBeingReplaced = Get-OVMVirtualMachines -Name $ComputernameOfServerBeingReplaced
         $VMObjectOfTemporarilyDeployedServer = Get-OVMVirtualMachines -Name $TemporarilyDeployedComputername
-        Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfComputerBeingReplaced -ComputerName $ComputernameOfServerBeingReplaced
-        Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfTemporarilyDeployedComputer -ComputerName $TemporarilyDeployedComputername
-        Sync-ADDomainControllers
-        Join-LinuxToADDomain -SSHSession
-        Stop-OVMVirtualMachine -ID $VMObjectOfServerBeingReplaced.id.value
+        #Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfComputerBeingReplaced -ComputerName $ComputernameOfServerBeingReplaced
+        #Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfTemporarilyDeployedComputer -ComputerName $TemporarilyDeployedComputername
+        #Sync-ADDomainControllers
+        #Join-LinuxToADDomain -SSHSession
+        #Stop-OVMVirtualMachine -ID $VMObjectOfServerBeingReplaced.id.value
         Rename-OVMVirtualMachine -VMID $VMObjectOfServerBeingReplaced.id.value -NewName "$ComputernameOfServerBeingReplaced-orig"
         Rename-OVMVirtualMachine -VMID $VMObjectOfTemporarilyDeployedServer.id.value -NewName "$ComputernameOfServerBeingReplaced"
         Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $ServerMigrationSourceFilePath -SFTPSession $SFTPSessionOfTemporarilyDeployedComputer -Overwrite
