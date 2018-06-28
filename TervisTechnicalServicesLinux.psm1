@@ -1507,3 +1507,47 @@ function Copy-OracleServerIdentityToNewSystem {
         Invoke-ProcessOracleODBEETemplateFiles -ComputerName $TemporarilyDeployedComputername -SFTPSession $SFTPSessionOfTemporarilyDeployedComputer -IPAddress $IPAddress -Overwrite
     }
 }
+
+function Enable-LinuxService {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Servicename
+    )
+    process{
+        $SSHCommand = "systemctl enable $Servicename"
+        Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
+    }
+}
+
+function Disable-LinuxService {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Servicename
+    )
+    process{
+        $SSHCommand = "systemctl disable $Servicename"
+        Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
+    }
+}
+
+function Start-LinuxService {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Servicename
+    )
+    process{
+        $SSHCommand = "systemctl start $Servicename"
+        Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
+    }
+}
+
+function Stop-LinuxService {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Servicename
+    )
+    process{
+        $SSHCommand = "systemctl stop $Servicename"
+        Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
+    }
+}
