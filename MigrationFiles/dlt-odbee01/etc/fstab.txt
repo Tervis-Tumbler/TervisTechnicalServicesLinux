@@ -1,0 +1,26 @@
+#
+# /etc/fstab
+# Created by anaconda on Thu May  3 13:03:02 2018
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/ol-root     /                       xfs     defaults        0 0
+UUID=d35a9b9a-c538-46ce-a751-09df61f60525 /boot                   xfs     defaults        0 0
+/dev/mapper/ol-swap     swap                    swap    defaults        0 0
+/dev/ebsu01_vg/ebsu01   /u01    ext3    _netdev,defaults      1 0
+/dev/ebsdata_vg/ebsdata   /ebsdata    ext3    _netdev,defaults      1 0
+/dev/soau02_vg/soau02   /u02    ext3    _netdev,defaults      1 0
+/dev/soadata_vg/soadata   /soadata    ext3    _netdev,defaults      1 0
+/dev/rpu03_vg/rpu03   /u03    ext3    _netdev,defaults      1 0
+/dev/rpdata_vg/rpdata   /rpdata    ext3    _netdev,defaults      1 0
+/dev/obiau04_vg/obiau04   /u04    ext3    _netdev,defaults      1 0
+/dev/obiadata_vg/obiadata   /obiadata    ext3    _netdev,defaults      1 0
+/dev/obieeu05_vg/obieeu05   /u05    ext3    _netdev,defaults      1 0
+/dev/obieedata_vg/obieedata   /obieedata    ext3    _netdev,defaults      1 0
+dfs-10:/EBSPatchBackup      /patches        nfs     rw      0 0
+dfs-10:/navimport/delta /navimport      nfs     rw      0 0
+/dev/ebsdata2_vg/ebsdata2 /ebsdata2 ext4 _netdev,defaults 1 0
+inf-orabackups.tervis.prv:OracleDatabaseBackups         /backup/primary/database       nfs     ro      0 0
+inf-orabackups.tervis.prv:OracleArchivelogBackups       /backup/primary/archivelogs    nfs     ro      0 0
+inf-orabackups.tervis.prv:OracleOSBackups       /backup/primary/OS    nfs     ro      0 0

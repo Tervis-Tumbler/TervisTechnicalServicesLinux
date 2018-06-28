@@ -313,6 +313,8 @@ function Invoke-OracleODBEEProvision{
 #    $Nodes | Invoke-ConfigureSSMTPForOffice365
 #    $Nodes | Invoke-ConfigureMUTTRCForOffice365
     $Nodes |  Invoke-ProcessOracleODBEETemplateFiles -Overwrite
+    $Nodes | Enable-LinuxService -Servicename "ntpd"
+    $Nodes | Start-LinuxService -Servicename "ntpd"
 
 }
 
