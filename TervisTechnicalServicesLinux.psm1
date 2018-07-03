@@ -1,5 +1,6 @@
 ﻿#Requires -Modules TervisVirtualization
-
+$ModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
+. $ModulePath\OracleServerDefinitions.ps1
 
 function Invoke-LinuxSFTPServiceVMProvision {
     param (
@@ -313,8 +314,6 @@ function Invoke-OracleODBEEProvision{
 #    $Nodes | Invoke-ConfigureSSMTPForOffice365
 #    $Nodes | Invoke-ConfigureMUTTRCForOffice365
     $Nodes |  Invoke-ProcessOracleODBEETemplateFiles -Overwrite
-    $Nodes | Enable-LinuxService -Servicename "ntpd"
-    $Nodes | Start-LinuxService -Servicename "ntpd"
 
 }
 
@@ -1510,46 +1509,28 @@ function Copy-OracleServerIdentityToNewSystem {
     }
 }
 
-function Enable-LinuxService {
+
+function Invoke-ReplicatLocalWindowsPathToLinux {
     param (
+        [Parameter(Mandatory)]$Path,
+        [Parameter(Mandatory)]$DestinationPath,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Servicename
+        [switch]$Overwrite
     )
-    process{
-        $SSHCommand = "systemctl enable $Servicename"
+    $Files = Get-ChildItem -Recurse -Path $Path -Directory
+    foreach ($File in $Files) {
+        $DestinationFileName = $File.Name
+        $RelativeDestinationPath = $File.Fullname.Replace($Path,"").Replace("\","/").Substring(1)
+        $DestinationPathOfFile = "$DestinationPath$RelativeDestinationPath"
+        $SSHCommand = "mkdir -p $DestinationPathOfFile | Out-Null"
         Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
     }
 }
 
-function Disable-LinuxService {
-    param (
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Servicename
+Function Get-OracleServerDefinition{
+    Param(
+        [parameter(Mandatory)]$Computername
     )
-    process{
-        $SSHCommand = "systemctl disable $Servicename"
-        Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
-    }
+    $OracleServerDefinitions | where Computername -eq $Computername
 }
 
-function Start-LinuxService {
-    param (
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Servicename
-    )
-    process{
-        $SSHCommand = "systemctl start $Servicename"
-        Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
-    }
-}
-
-function Stop-LinuxService {
-    param (
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Servicename
-    )
-    process{
-        $SSHCommand = "systemctl stop $Servicename"
-        Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
-    }
-}
