@@ -1,0 +1,37 @@
+##OLD###00 22 * * * /u01/app/oracle/FCS_TEKSYSTEMS/RP_scripts/Gather_MV_Refresh_schedule.sh > /u01/app/oracle/FCS_TEKSYSTEMS/RP_scripts/Gather_MV_Refresh_schedule_$(date +\%Y\%m\%d\%H\%M\%S).log
+##OLD##
+##OLD###20 7,15,23 * * * sh /patches/FCS_TEKSYSTEM/Venkat_Mannuru/Scripts/jobs/DB/daily_checklist-SIT.ksh > /patches/FCS_TEKSYSTEM/Venkat_Mannuru/Scripts/jobs/DB/daily_checklist-SIT.log
+##OLD##00 07 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_EPSILON_SIT_HealthCheck.ksh > /patches/OFS_ORACLE/dba/scripts/HEALTH_CHECK_SIT.log
+##OLD##01 07 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_EPSILON_SITRP_HealthCheck.ksh > /patches/OFS_ORACLE/dba/scripts/HEALTH_CHECK_SITRP.log
+##OLD##02 07 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_EPSILON_SITBI_HealthCheck.ksh > /patches/OFS_ORACLE/dba/scripts/HEALTH_CHECK_SITBI.log
+##OLD##03 07 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_EPSILON_SITSOA_HealthCheck.ksh > /patches/OFS_ORACLE/dba/scripts/HEALTH_CHECK_SITSOA.log
+##OLD##04 07 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_EPSILON_SITDWH_HealthCheck.ksh > /patches/OFS_ORACLE/dba/scripts/HEALTH_CHECK_SITDWH.log
+00 07 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_EPSILON_HealthCheck.ksh & 
+################ Temp usage############################################
+#*/30 * * * * /patches/OFS_ORACLE/dba/scripts/TEMP_usage_monitor_SIT.sh
+#*/30 * * * * /patches/OFS_ORACLE/dba/scripts/TEMP_usage_monitor_SITDWH.sh
+
+
+
+
+######### File system alert > 90% #####################
+#don has his own disk monitoring 6Sep17*/30 * * * * /u01/app/oracle/OFS/filesystem.sh
+
+
+########### Alert log check ####################
+00,05,10,15,20,25,30,35,40,45,50,55 * * * * /u01/app/oracle/OFS/alertcheck_SIT.sh
+#00,05,10,15,20,25,30,35,40,45,50,55 * * * * /u01/app/oracle/OFS/alertcheck_SITRP.sh
+
+
+
+######   Track IT == 80518  #######################
+0 * * * * /patches/OFS_ORACLE/dba/scripts/rcs_analysis_r12.sh
+
+#*/15 * * * * /patches/OFS_ORACLE/dba/scripts/tbsp_usage_SITDWH.sh 90 >/patches/OFS_ORACLE/dba/scripts/tbsp_usage_SITDWH.log
+
+############## Tablespace more than90% ####################
+#*/20 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_SIT.sh
+#*/20 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_SITRP.sh
+#*/20 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_SITSOA.sh
+#*/20 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_SITBI.sh
+#*/20 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_SITDWH.sh

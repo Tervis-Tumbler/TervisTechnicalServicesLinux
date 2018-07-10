@@ -1,2 +1,2 @@
-dlt-odbee01.tervis.prv
-10.172.44.164
+inf-odbee01.tervis.prv
+10.172.48.33
