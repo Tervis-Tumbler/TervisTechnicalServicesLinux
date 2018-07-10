@@ -1531,7 +1531,32 @@ Function Get-OracleServerDefinition{
     Param(
         [parameter(Mandatory)]$Computername
     )
-    $OracleServerDefinitions | where Computername -eq $Computername
+    $OracleServerDefinitions |  Where-Object {-not $Computername -or $_.Computername -In $Computername}
+}
+
+function Set-LinuxFirewall{
+    @"
+    All
+    firewall-cmd --permanent --add-service=nfs
+    firewall-cmd --permanent --add-service=mountd
+    firewall-cmd --permanent --add-service=rpc-bind
+
+    Delta
+    firewall-cmd --add-port 1521/tcp --permanent 
+    firewall-cmd --add-port 1523/tcp --permanent 
+    firewall-cmd --add-port 1526/tcp --permanent 
+    firewall-cmd --add-port 1527/tcp --permanent 
+    firewall-cmd --reload
+
+    Epsilon
+    firewall-cmd --add-port 1521/tcp --permanent 
+    firewall-cmd --add-port 1522/tcp --permanent 
+    firewall-cmd --add-port 1523/tcp --permanent 
+    firewall-cmd --add-port 1526/tcp --permanent 
+    firewall-cmd --add-port 1527/tcp --permanent 
+    firewall-cmd --reload
+
+"@
 }
 
 function Get-OracleVMServers{
