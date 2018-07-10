@@ -1534,3 +1534,9 @@ Function Get-OracleServerDefinition{
     $OracleServerDefinitions | where Computername -eq $Computername
 }
 
+function Get-OracleVMServers{
+    param(
+        $Computername
+    )
+    $OracleClusterNodes | Where-Object {-not $Computername -or $_.Computername -In $Computername}
+}
