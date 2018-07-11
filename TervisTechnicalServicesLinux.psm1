@@ -1565,3 +1565,43 @@ function Get-OracleVMClusterNodes{
     )
     $OracleClusterNodes | Where-Object {-not $Computername -or $_.Computername -In $Computername}
 }
+
+function Get-OVMServerLogs{
+    $OracleVMClusterNodes = Get-OracleVMClusterNodes -Computername inf-ovmc3n8
+    $OVMClusterNodeRootCredential = Get-PasswordstatePassword -ID 3636 -AsCredential
+    New-SSHSession -Computername $OracleVMClusterNodes.Computername -Credential $OVMClusterNodeRootCredential -AcceptKey | Out-Null
+    $OracleVMClusterNodes | % {
+#        $Messageslog = Invoke-SSHCommand -ComputerName $_.Computername -Command "cat /var/log/messages"
+        [PSCustomObject][Ordered]@{
+            Computername = $_.Computername
+            Messages = (Invoke-SSHCommand -SSHSession (Get-SSHSession -ComputerName $_.Computername) -Command "cat /var/log/messages").Output
+            OVSAgentLogs = (Invoke-SSHCommand -SSHSession (Get-SSHSession -ComputerName $_.Computername) -Command "cat /var/log/ovs-agent.log").Output
+            DMESG = Get-LinuxDMESG -SSHSession (Get-SSHSession -ComputerName $_.Computername)
+        }
+    Get-SSHSession -ComputerName $_.Computername | Remove-SSHSession -ErrorAction SilentlyContinue
+    }
+    
+}
+
+function Get-LinuxDMESG {
+    param(
+        $SSHSession
+    )
+    $Uptime = Get-LinuxUptime -SSHSession $SshSession
+    $RawDMESG = (Invoke-SSHCommand -SSHSession (get-sshsession) -Command "dmesg").output
+    $RawDMESG | %{
+        $_ -match "\[(.*?)\]"
+        $String = $Matches[1]
+        $DateTimeString = $Uptime.AddSeconds($String)
+        $_ -replace "\[(.*?)\]","$DateTimeString --"
+    }
+}
+
+function Get-LinuxUptime{
+    param(
+        $SSHSession
+    )
+    $Date = Get-Date
+    $UptimeInSeconds = (Invoke-SSHCommand -SSHSession $SshSession -Command "cut -d ' ' -f1 /proc/uptime").output
+    $Date.AddSeconds(-"$UptimeInSeconds")
+}
