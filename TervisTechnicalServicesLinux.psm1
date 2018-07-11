@@ -301,7 +301,7 @@ function Invoke-OracleODBEEProvision{
         $EnvironmentName
     )
     Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
-    $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -IncludeSSHSession -IncludeSFTSession
+    $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
     $Nodes | Install-PuppetonLinux
     $Nodes | Invoke-CreateOracleUserAccounts
 #    $Nodes | Set-LinuxFSTABWithPuppet
@@ -310,7 +310,7 @@ function Invoke-OracleODBEEProvision{
 #    $Nodes | Set-LinuxSSHDConfig
 #    $Nodes | Set-LinuxSysCtlWithPuppet
 #    $Nodes | Install-EMCHostAgentOnLinux
-    $Nodes | New-LinuxISCSISetup
+#    $Nodes | New-LinuxISCSISetup
 #    $Nodes | Invoke-ConfigureSSMTPForOffice365
 #    $Nodes | Invoke-ConfigureMUTTRCForOffice365
     $Nodes |  Invoke-ProcessOracleODBEETemplateFiles -Overwrite
@@ -326,10 +326,10 @@ function Invoke-OracleApplicationProvision {
     $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeVM
 
     $Nodes |
-    Where-Object    {-not $_.VM} |
+    where {-not $_.VM} |
 #    Invoke-OVMApplicationNodeVMProvision -ApplicationName $ApplicationName
     Invoke-OVMApplicationNodeVMProvision
-if ( $Nodes | Where-Objec  {-not $_.VM} ) {
+if ( $Nodes | where {-not $_.VM} ) {
         throw "Not all nodes have VMs even after Invoke-ApplicationNodeVMProvision"
     }
     $Nodes | Invoke-ApplicationNodeProvision
@@ -493,7 +493,7 @@ function Get-TervisOracleApplicationDefinition {
     )
     
     $OracleApplicationDefinition | 
-    Where-Object    Name -EQ $Name
+    where Name -EQ $Name
 }
 
 function Invoke-OraDBARMTProvision {
@@ -523,10 +523,10 @@ function Get-LinuxStorageMapping{
     $PVList = Get-LinuxPVList -Hostname $Hostname
     
     foreach ($Partition in $Partitionlist){
-        if($DM = ($DMList | Where-Object {$Partition.Major -eq $_.Major -and $Partition.Minor -eq $_.Minor})){
+        if($DM = ($DMList | where {$Partition.Major -eq $_.Major -and $Partition.Minor -eq $_.Minor})){
             $Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value $dm.VolGroup -force
         }
-        elseif ($PV = ($PVList | Where-Object {(Split-Path $_.PV -Leaf) -eq $Partition.Devname})){
+        elseif ($PV = ($PVList | where {(Split-Path $_.PV -Leaf) -eq $Partition.Devname})){
             $Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value $PV.VolGroup -force
         }
         else {$Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value "NA" -force}
@@ -1104,7 +1104,7 @@ function Get-LinuxMountDefinitions {
     param(
         $ApplicationName
     )
-    $LinuxMountDefinitions | Where-Object  {-not $ApplicationName -or $_.Applicationname -eq $ApplicationName}
+    $LinuxMountDefinitions | where{-not $ApplicationName -or $_.Applicationname -eq $ApplicationName}
 }
 
 $LinuxMountDefinitions = [pscustomobject][ordered]@{
@@ -1161,8 +1161,7 @@ function Invoke-CreateOracleUserAccounts {
     )
     process{
         $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.Applicationname
-        $EnvironmentDefinition = $ApplicationDefinition.Environments | Where-Object
- Name -eq $Node.EnvironmentName
+        $EnvironmentDefinition = $ApplicationDefinition.Environments | where Name -eq $Node.EnvironmentName
 
         $OracleUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.OracleUserCredential -AsPlainText
         $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.ApplmgrUserCredential -AsPlainText
@@ -1491,7 +1490,7 @@ function Copy-OracleServerIdentityToNewSystem {
         $OracleODBEERootPath = "/"
     }
     process {
-        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search "eps-odbee01 - root" -PasswordListID 46 -AsCredential
+        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search "dlt-odbee01 - root" -PasswordListID 46 -AsCredential
         $PasswordstateCredentialofTemporarilyDeployedComputer = Get-PasswordstatePassword -ID 5361 -AsCredential
         $SSHSessionOfComputerBeingReplaced = New-SSHSession -ComputerName $ComputernameOfServerBeingReplaced -Credential $PasswordstateCredentialOfComputerBeingReplaced
         $SSHSessionOfTemporarilyDeployedComputer = New-SSHSession -ComputerName $TemporarilyDeployedComputername -Credential $PasswordstateCredentialofTemporarilyDeployedComputer
@@ -1511,7 +1510,7 @@ function Copy-OracleServerIdentityToNewSystem {
 }
 
 
-function Invoke-ReplicateLocalWindowsPathToLinux {
+function Invoke-ReplicatLocalWindowsPathToLinux {
     param (
         [Parameter(Mandatory)]$Path,
         [Parameter(Mandatory)]$DestinationPath,
@@ -1530,7 +1529,7 @@ function Invoke-ReplicateLocalWindowsPathToLinux {
 
 Function Get-OracleServerDefinition{
     Param(
-        $Computername
+        [parameter(Mandatory)]$Computername
     )
     $OracleServerDefinitions |  Where-Object {-not $Computername -or $_.Computername -In $Computername}
 }
@@ -1560,49 +1559,9 @@ function Set-LinuxFirewall{
 "@
 }
 
-function Get-OracleVMClusterNodes{
+function Get-OracleVMServers{
     param(
         $Computername
     )
     $OracleClusterNodes | Where-Object {-not $Computername -or $_.Computername -In $Computername}
-}
-
-function Get-OVMServerLogs{
-    $OracleVMClusterNodes = Get-OracleVMClusterNodes -Computername inf-ovmc3n8
-    $OVMClusterNodeRootCredential = Get-PasswordstatePassword -ID 3636 -AsCredential
-    New-SSHSession -Computername $OracleVMClusterNodes.Computername -Credential $OVMClusterNodeRootCredential -AcceptKey | Out-Null
-    $OracleVMClusterNodes | % {
-#        $Messageslog = Invoke-SSHCommand -ComputerName $_.Computername -Command "cat /var/log/messages"
-        [PSCustomObject][Ordered]@{
-            Computername = $_.Computername
-            Messages = (Invoke-SSHCommand -SSHSession (Get-SSHSession -ComputerName $_.Computername) -Command "cat /var/log/messages").Output
-            OVSAgentLogs = (Invoke-SSHCommand -SSHSession (Get-SSHSession -ComputerName $_.Computername) -Command "cat /var/log/ovs-agent.log").Output
-            DMESG = Get-LinuxDMESG -SSHSession (Get-SSHSession -ComputerName $_.Computername)
-        }
-    Get-SSHSession -ComputerName $_.Computername | Remove-SSHSession -ErrorAction SilentlyContinue
-    }
-    
-}
-
-function Get-LinuxDMESG {
-    param(
-        $SSHSession
-    )
-    $Uptime = Get-LinuxUptime -SSHSession $SshSession
-    $RawDMESG = (Invoke-SSHCommand -SSHSession (get-sshsession) -Command "dmesg").output
-    $RawDMESG | %{
-        $_ -match "\[(.*?)\]"
-        $String = $Matches[1]
-        $DateTimeString = $Uptime.AddSeconds($String)
-        $_ -replace "\[(.*?)\]","$DateTimeString --"
-    }
-}
-
-function Get-LinuxUptime{
-    param(
-        $SSHSession
-    )
-    $Date = Get-Date
-    $UptimeInSeconds = (Invoke-SSHCommand -SSHSession $SshSession -Command "cut -d ' ' -f1 /proc/uptime").output
-    $Date.AddSeconds(-"$UptimeInSeconds")
 }

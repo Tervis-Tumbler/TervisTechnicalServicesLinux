@@ -1,2 +1,2 @@
-eps-odbee01.tervis.prv
-10.172.44.82
+inf-odbee01.tervis.prv
+10.172.48.33
