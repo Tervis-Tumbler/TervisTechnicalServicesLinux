@@ -1490,7 +1490,7 @@ function Copy-OracleServerIdentityToNewSystem {
         $OracleODBEERootPath = "/"
     }
     process {
-        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search "dlt-odbee01 - root" -PasswordListID 46 -AsCredential
+        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search "eps-odbee01 - root" -PasswordListID 46 -AsCredential
         $PasswordstateCredentialofTemporarilyDeployedComputer = Get-PasswordstatePassword -ID 5361 -AsCredential
         $SSHSessionOfComputerBeingReplaced = New-SSHSession -ComputerName $ComputernameOfServerBeingReplaced -Credential $PasswordstateCredentialOfComputerBeingReplaced
         $SSHSessionOfTemporarilyDeployedComputer = New-SSHSession -ComputerName $TemporarilyDeployedComputername -Credential $PasswordstateCredentialofTemporarilyDeployedComputer
@@ -1529,7 +1529,7 @@ function Invoke-ReplicateLocalWindowsPathToLinux {
 
 Function Get-OracleServerDefinition{
     Param(
-        [parameter(Mandatory)]$Computername
+        $Computername
     )
     $OracleServerDefinitions |  Where-Object {-not $Computername -or $_.Computername -In $Computername}
 }
@@ -1559,7 +1559,7 @@ function Set-LinuxFirewall{
 "@
 }
 
-function Get-OracleVMServers{
+function Get-OracleVMClusterNodes{
     param(
         $Computername
     )
