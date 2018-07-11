@@ -1580,7 +1580,6 @@ function Get-OVMServerLogs{
         }
     Get-SSHSession -ComputerName $_.Computername | Remove-SSHSession -ErrorAction SilentlyContinue
     }
-    
 }
 
 function Get-LinuxDMESG {
@@ -1590,9 +1589,8 @@ function Get-LinuxDMESG {
     $Uptime = Get-LinuxUptime -SSHSession $SshSession
     $RawDMESG = (Invoke-SSHCommand -SSHSession (get-sshsession) -Command "dmesg").output
     $RawDMESG | %{
-        $_ -match "\[(.*?)\]"
-        $String = $Matches[1]
-        $DateTimeString = $Uptime.AddSeconds($String)
+        $DMESGTimestamp = $_ -match "\[(.*?)\]"
+        $DateTimeString = $Uptime.AddSeconds($DMESGTimestamp)
         $_ -replace "\[(.*?)\]","$DateTimeString --"
     }
 }
