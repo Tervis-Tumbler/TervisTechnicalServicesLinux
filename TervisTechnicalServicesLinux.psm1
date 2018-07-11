@@ -326,10 +326,10 @@ function Invoke-OracleApplicationProvision {
     $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeVM
 
     $Nodes |
-    where {-not $_.VM} |
+    Where-Object    {-not $_.VM} |
 #    Invoke-OVMApplicationNodeVMProvision -ApplicationName $ApplicationName
     Invoke-OVMApplicationNodeVMProvision
-if ( $Nodes | where {-not $_.VM} ) {
+if ( $Nodes | Where-Objec  {-not $_.VM} ) {
         throw "Not all nodes have VMs even after Invoke-ApplicationNodeVMProvision"
     }
     $Nodes | Invoke-ApplicationNodeProvision
@@ -493,7 +493,7 @@ function Get-TervisOracleApplicationDefinition {
     )
     
     $OracleApplicationDefinition | 
-    where Name -EQ $Name
+    Where-Object    Name -EQ $Name
 }
 
 function Invoke-OraDBARMTProvision {
@@ -523,10 +523,10 @@ function Get-LinuxStorageMapping{
     $PVList = Get-LinuxPVList -Hostname $Hostname
     
     foreach ($Partition in $Partitionlist){
-        if($DM = ($DMList | where {$Partition.Major -eq $_.Major -and $Partition.Minor -eq $_.Minor})){
+        if($DM = ($DMList | Where-Object {$Partition.Major -eq $_.Major -and $Partition.Minor -eq $_.Minor})){
             $Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value $dm.VolGroup -force
         }
-        elseif ($PV = ($PVList | where {(Split-Path $_.PV -Leaf) -eq $Partition.Devname})){
+        elseif ($PV = ($PVList | Where-Object {(Split-Path $_.PV -Leaf) -eq $Partition.Devname})){
             $Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value $PV.VolGroup -force
         }
         else {$Partition | Add-Member -MemberType NoteProperty -Name VolGroup -Value "NA" -force}
@@ -1104,7 +1104,7 @@ function Get-LinuxMountDefinitions {
     param(
         $ApplicationName
     )
-    $LinuxMountDefinitions | where{-not $ApplicationName -or $_.Applicationname -eq $ApplicationName}
+    $LinuxMountDefinitions | Where-Object  {-not $ApplicationName -or $_.Applicationname -eq $ApplicationName}
 }
 
 $LinuxMountDefinitions = [pscustomobject][ordered]@{
@@ -1161,7 +1161,7 @@ function Invoke-CreateOracleUserAccounts {
     )
     process{
         $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.Applicationname
-        $EnvironmentDefinition = $ApplicationDefinition.Environments | where Name -eq $Node.EnvironmentName
+        $EnvironmentDefinition = $ApplicationDefinition.Environments | Where-Object Name -eq $Node.EnvironmentName
 
         $OracleUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.OracleUserCredential -AsPlainText
         $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.ApplmgrUserCredential -AsPlainText
@@ -1510,7 +1510,7 @@ function Copy-OracleServerIdentityToNewSystem {
 }
 
 
-function Invoke-ReplicatLocalWindowsPathToLinux {
+function Invoke-ReplicateLocalWindowsPathToLinux {
     param (
         [Parameter(Mandatory)]$Path,
         [Parameter(Mandatory)]$DestinationPath,
