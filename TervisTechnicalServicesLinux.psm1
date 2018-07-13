@@ -220,7 +220,7 @@ function Set-TervisSFTPServerConfiguration {
 
     $Credential = Get-PasswordstatePassword -AsCredential -ID $Node.LocalAdminPasswordStateID
     New-SSHSession -Credential $Credential -ComputerName $Node.IpAddress -acceptkey
-    $CIFSPasswordstateCredential = Get-PasswordstateCredential -AsPlainText -PasswordID 3939
+    $CIFSPasswordstateCredential = Get-PasswordstatePassword -ID 3939
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "yes | yum -y install puppet"    
