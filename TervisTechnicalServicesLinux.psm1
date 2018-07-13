@@ -218,7 +218,7 @@ function Set-TervisSFTPServerConfiguration {
         $Node
     )
 
-    $Credential = Get-PasswordstateCredential -PasswordID $Node.LocalAdminPasswordStateID
+    $Credential = Get-PasswordstatePassword -AsCredential -ID $Node.LocalAdminPasswordStateID
     New-SSHSession -Credential $Credential -ComputerName $Node.IpAddress -acceptkey
     $CIFSPasswordstateCredential = Get-PasswordstateCredential -AsPlainText -PasswordID 3939
 
@@ -346,7 +346,7 @@ function Invoke-OVMApplicationNodeVMProvision {
     process {
         $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.ApplicationName
         $RootPasswordstateEntryDetails = Get-PasswordstatePassword -ID $Node.LocalAdminPasswordStateID
-        #$VMTemplateCredential = Get-PasswordstateCredential -PasswordID $Node.LocalAdminPasswordStateID
+        #$VMTemplateCredential = Get-PasswordstatePassword -AsCredential -ID $Node.LocalAdminPasswordStateID
         $DHCPScope = Get-TervisDhcpServerv4Scope -Environment $Node.EnvironmentName
         $TervisVMParameters = @{
             VMNameWithoutEnvironmentPrefix = $Node.NameWithoutPrefix
@@ -384,7 +384,7 @@ function set-NetaTalkFileServerConfiguration {
     )
     $ComputerName = $TervisVMObject.Name
     $IPAddress = $TervisVMObject.IPAddress
-        $Credential = Get-PasswordstateCredential -PasswordID "4119"
+        $Credential = Get-PasswordstatePassword -AsCredential -ID "4119"
     $SSHSession = New-SSHSession -Credential $credential -ComputerName $IPAddress -acceptkey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
@@ -400,7 +400,7 @@ function set-NetaTalkFileServerConfiguration {
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "systemctl enable ntpd.service;ntpdate ntp.domain;sysemctl start ntpd.service"
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "realm join --one-time-password=$ComputerName tervis.prv"
 
-    $PasswordstateCredential = Get-PasswordstateCredential -PasswordID "4120" -AsPlainText
+    $PasswordstateCredential = Get-PasswordstatePassword -ID "4120"
     $CreateSMBServiceAccountUserNameAndPasswordFile = @"
 cat >/etc/SMBServiceAccountCredentials.txt <<
 username=$($PasswordstateCredential.username)`npassword=$($PasswordstateCredential.password)
@@ -452,7 +452,7 @@ function set-TervisOVMManagerserverConfiguration {
         [Parameter(Mandatory)]
         $Computername
     )
-    $Credential = Get-PasswordstateCredential -PasswordID "4040"
+    $Credential = Get-PasswordstatePassword -AsCredential -ID "4040"
     $SSHSession = New-SSHSession -Credential $credential -ComputerName $Computername -acceptkey
 
     Invoke-SSHCommand -SSHSession $(get-sshsession) -Command "rpm -ivh http://yum.puppetlabs.com/puppetlabs-release-el-7.noarch.rpm"
@@ -538,7 +538,7 @@ function Get-LinuxPartitionList {
     param(
         [parameter(Mandatory)]$Hostname
     )
-    $Credential = Get-PasswordstateCredential -PasswordID 4702
+    $Credential = Get-PasswordstatePassword -AsCredential -ID 4702
     New-SSHSession -Credential $Credential -ComputerName $Hostname | Out-Null
     $PartitionsTemplate = @"
 major minor  #blocks  name
@@ -559,7 +559,7 @@ function Get-LinuxDMList {
     param(
         [parameter(Mandatory)]$Hostname
     )
-    $credential = Get-PasswordstateCredential -PasswordID 4702
+    $credential = Get-PasswordstatePassword -AsCredential -ID 4702
     New-SSHSession -Credential $credential -ComputerName $Hostname | Out-Null
     $PartitionsTemplate = @"
 {VolGroup*:obiadata_vg-obiadata"}	({Major:252}, {Minor:4})
@@ -577,7 +577,7 @@ function Get-LinuxPVList {
     param(
         [parameter(Mandatory)]$Hostname
     )
-    $credential = Get-PasswordstateCredential -PasswordID 4702
+    $credential = Get-PasswordstatePassword -AsCredential -ID 4702
     New-SSHSession -Credential $credential -ComputerName $Hostname | Out-Null
     $PVSTemplate= @"
   PV         VG                  Fmt  Attr PSize    PFree  
@@ -724,8 +724,8 @@ function Invoke-TervisLinuxCommand {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
         [Parameter(Mandatory)]$Command
     )
-    $Credential = Get-PasswordstateCredential -PasswordID 4702
-#    $Credential = Get-PasswordstateCredential -PasswordID 2614
+    $Credential = Get-PasswordstatePassword -AsCredential -ID 4702
+#    $Credential = Get-PasswordstatePassword -AsCredential -ID 2614
 #    Invoke-LinuxCommand -Credential $Credential -ComputerName $ComputerName -Command $Command
     New-SSHSession -Credential $Credential -ComputerName $ComputerName | Out-Null
     Invoke-SSHCommand -SSHSession $SshSessions -Command $Command
@@ -767,7 +767,7 @@ cat >/etc/iscsi/initiatorname.iscsi <<
 $Initiatornamestring
 "@
 
-    $credential = Get-PasswordstateCredential -PasswordID 4702
+    $credential = Get-PasswordstatePassword -AsCredential -ID 4702
     
     New-SSHSession -ComputerName $Hostname -Credential $credential
     
@@ -833,7 +833,7 @@ function Join-LinuxToADDomain {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ApplicationName
     )
     process {
-        $DomainJoinCredential = Get-PasswordstateCredential -PasswordID 2643
+        $DomainJoinCredential = Get-PasswordstatePassword -AsCredential -ID 2643
         $CredentialParts = $DomainJoinCredential.UserName -split "@"
         $UserName = $CredentialParts[0]
         $DomainName = $CredentialParts[1].ToUpper()
@@ -855,7 +855,7 @@ function Invoke-DisjoinLinuxFromADDomain {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
     )
     process {
-        $DomainJoinCredential = Get-PasswordstateCredential -PasswordID 2643
+        $DomainJoinCredential = Get-PasswordstatePassword -AsCredential -ID 2643
         $CredentialParts = $DomainJoinCredential.UserName -split "@"
         $UserName = $CredentialParts[0]
         $DomainName = $CredentialParts[1].ToUpper()
@@ -1012,7 +1012,7 @@ oracle:MailerDaemon@tervis.com:smtp.office365.com:587
 "@
     }
     process{
-#        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
+#        $Credential = Get-PasswordstatePassword -AsCredential -ID $LocalAdminPasswordStateID
 #        New-SSHSession -ComputerName $Computername -Credential $Credential
         Invoke-SSHCommand -SSHSession $SSHSession -Command $MoveCommand
         Invoke-SSHCommand -SSHSession $SSHSession -Command $SSMTPCONF
@@ -1045,7 +1045,7 @@ set realname = "Mailer Daemon"
 "@
     }
     process{
-#        $Credential = Get-PasswordstateCredential -PasswordID $LocalAdminPasswordStateID
+#        $Credential = Get-PasswordstatePassword -AsCredential -ID $LocalAdminPasswordStateID
 #        New-SSHSession -ComputerName $Computername -Credential $Credential
         Invoke-SSHCommand -SSHSession $SSHSession -Command $DOTMUTTRCApplmgr
         Invoke-SSHCommand -SSHSession $SSHSession -Command $DOS2UnixDOTMUTTRCApplmgr
@@ -1163,8 +1163,8 @@ function Invoke-CreateOracleUserAccounts {
         $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.Applicationname
         $EnvironmentDefinition = $ApplicationDefinition.Environments | Where-Object Name -eq $Node.EnvironmentName
 
-        $OracleUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.OracleUserCredential -AsPlainText
-        $ApplmgrUserCredential = Get-PasswordstateCredential -PasswordID $EnvironmentDefinition.ApplmgrUserCredential -AsPlainText
+        $OracleUserCredential = Get-PasswordstatePassword -ID $EnvironmentDefinition.OracleUserCredential
+        $ApplmgrUserCredential = Get-PasswordstatePassword -ID $EnvironmentDefinition.ApplmgrUserCredential
         $PuppetUserAccountConfig = @"
 cat >/etc/puppet/manifests/UserAccounts.pp <<
 group { 'dba':
