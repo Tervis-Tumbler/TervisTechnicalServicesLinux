@@ -1,0 +1,2 @@
+#*/30 * * * * sync; echo 3 > /proc/sys/vm/drop_caches
+0 */2 * * * sync; echo 3 > /proc/sys/vm/drop_caches

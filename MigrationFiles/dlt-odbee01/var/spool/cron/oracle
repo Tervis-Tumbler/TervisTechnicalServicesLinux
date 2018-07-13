@@ -1,0 +1,31 @@
+##main####OLD####21 7,15,23 * * * sh /patches/FCS_TEKSYSTEM/Venkat_Mannuru/Scripts/jobs/DB/daily_checklist-DEV.ksh > /patches/FCS_TEKSYSTEM/Venkat_Mannuru/Scripts/jobs/DB/daily_checklist-DEV.log
+##main####OLD####00 01,09,17 * * * sh /patches/OFS_ORACLE/dba/scripts/tablespace_check_dev.ksh > /patches/OFS_ORACLE/dba/scripts/tablespace_check_dev.log
+##main####OLD####00 01,09,17 * * * sh /patches/OFS_ORACLE/dba/scripts/tablespace_check_devbi.ksh > /patches/OFS_ORACLE/dba/scripts/tablespace_check_devbi.log
+##main####OLD##00 08 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_DELTA_DEV_HealthCheck.ksh &
+##main####OLD##01 08 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_DELTA_DEVRP_HealthCheck.ksh &
+##main####OLD##02 08 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_DELTA_DEVBI_HealthCheck.ksh &
+##main####OLD##03 08 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_DELTA_DEVSOA_HealthCheck.ksh &
+##main####OLD##04 08 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_DELTA_DEVDWH_HealthCheck.ksh &
+##main##00 08 * * * sh /patches/OFS_ORACLE/dba/scripts/DB_DELTA_HealthCheck.ksh &
+##main##
+##main################## Temp usage############################################
+##main##*/30 * * * * /patches/OFS_ORACLE/dba/scripts/TEMP_usage_monitor_delta.sh
+##main##*/30 * * * * /patches/OFS_ORACLE/dba/scripts/TEMP_usage_monitor_deltadwh.sh
+##main##
+##main##### TABLESAPCE ALERT --Critical ######################
+##main##*/30 * * * * /patches/OFS_ORACLE/dba/scripts/tbs_cheeck_DEV.sh > /patches/OFS_ORACLE/dba/scripts/tbs_cheeck_DEV.log 2>&1
+##main##*/30 * * * * /patches/OFS_ORACLE/dba/scripts/tbs_cheeck_DEVdWH.sh > /patches/OFS_ORACLE/dba/scripts/tbs_cheeck_DEVdWH.log 2>&1
+##main##
+##main##
+######### File system alert > 90% #####################
+#don has his own disk monitoring gj 6Sep17*/30 * * * * /u01/app/oracle/OFS/cron_alert/filesystem.sh
+##main##
+##main##
+##main##
+##main############# Alert log check ####################
+##main##00,05,10,15,20,25,30,35,40,45,50,55 * * * * /u01/app/oracle/OFS/cron_alert/alertcheck_DEV.sh
+##main##
+
+######   Track IT == 80518  #######################
+0 * * * * /patches/OFS_ORACLE/dba/scripts/DEV_rcs_analysis_r12.sh
+##00 08 * * * find /ebsdata/DEV/archive -type f -mtime +2 -exec rm {} \

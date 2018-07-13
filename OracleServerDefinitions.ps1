@@ -169,3 +169,22 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
 }
 
 
+
+$OracleClusterNodes = [PSCustomObject][Ordered]@{
+    Computername = "inf-ovmc3n1"
+},
+[PSCustomObject][Ordered]@{
+    Computername = "inf-ovmc3n2"
+},[PSCustomObject][Ordered]@{
+    Computername = "inf-ovmc3n3"
+},[PSCustomObject][Ordered]@{
+    Computername = "inf-ovmc3n4"
+},[PSCustomObject][Ordered]@{
+    Computername = "inf-ovmc3n5"
+},[PSCustomObject][Ordered]@{
+    Computername = "inf-ovmc3n6"
+},[PSCustomObject][Ordered]@{
+    Computername = "inf-ovmc3n7"
+},[PSCustomObject][Ordered]@{
+    Computername = "inf-ovmc3n8"
+}
