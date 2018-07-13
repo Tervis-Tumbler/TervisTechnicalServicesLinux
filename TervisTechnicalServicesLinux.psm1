@@ -345,7 +345,7 @@ function Invoke-OVMApplicationNodeVMProvision {
     )
     process {
         $ApplicationDefinition = Get-TervisApplicationDefinition -Name $Node.ApplicationName
-        $RootPasswordstateEntryDetails = Get-PasswordstateEntryDetails $Node.LocalAdminPasswordStateID
+        $RootPasswordstateEntryDetails = Get-PasswordstatePassword -ID $Node.LocalAdminPasswordStateID
         #$VMTemplateCredential = Get-PasswordstateCredential -PasswordID $Node.LocalAdminPasswordStateID
         $DHCPScope = Get-TervisDhcpServerv4Scope -Environment $Node.EnvironmentName
         $TervisVMParameters = @{
