@@ -1535,11 +1535,12 @@ Function Get-OracleServerDefinition{
 }
 
 function Set-LinuxFirewall{
-    @"
+@"
     All
     firewall-cmd --permanent --add-service=nfs
-    firewall-cmd --permanent --add-service=mountd
-    firewall-cmd --permanent --add-service=rpc-bind
+
+    Zeta
+    firewall-cmd --add-port 1526/tcp --permanent 
 
     Delta
     firewall-cmd --add-port 1521/tcp --permanent 
