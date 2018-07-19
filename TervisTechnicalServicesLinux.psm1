@@ -1568,7 +1568,15 @@ function Get-OracleVMClusterNodes{
 }
 
 function Get-OVMServerLogs{
-    $OracleVMClusterNodes = Get-OracleVMClusterNodes -Computername inf-ovmc3n8
+    param(
+        $Computername
+    )
+    if ($Computername){
+        $OracleVMClusterNodes = Get-OracleVMClusterNodes -Computername $Computername
+    }
+    else{
+        $OracleVMClusterNodes = Get-OracleVMClusterNodes
+    }
     $OVMClusterNodeRootCredential = Get-PasswordstatePassword -ID 3636 -AsCredential
     New-SSHSession -Computername $OracleVMClusterNodes.Computername -Credential $OVMClusterNodeRootCredential -AcceptKey | Out-Null
     $OracleVMClusterNodes | % {
@@ -1579,8 +1587,9 @@ function Get-OVMServerLogs{
             OVSAgentLogs = (Invoke-SSHCommand -SSHSession (Get-SSHSession -ComputerName $_.Computername) -Command "cat /var/log/ovs-agent.log").Output
             DMESG = Get-LinuxDMESG -SSHSession (Get-SSHSession -ComputerName $_.Computername)
         }
-    Get-SSHSession -ComputerName $_.Computername | Remove-SSHSession -ErrorAction SilentlyContinue
+#    Get-SSHSession -ComputerName $_.Computername | Remove-SSHSession -ErrorAction SilentlyContinue
     }
+    Get-SSHSession | Remove-SSHSession | Out-Null
 }
 
 function Get-LinuxDMESG {
