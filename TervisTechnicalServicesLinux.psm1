@@ -1614,3 +1614,11 @@ function Get-LinuxUptime{
     $UptimeInSeconds = (Invoke-SSHCommand -SSHSession $SshSession -Command "cut -d ' ' -f1 /proc/uptime").output
     $Date.AddSeconds(-"$UptimeInSeconds")
 }
+
+function Set-OracleODBEEHugePages{
+    $HugepageSize = 2048
+    $Memlock = $Memory - ($Memory * .1)
+    $HugePageCount = $SGASize / $HugepageSize
+    "vm.nr_hugepages = $HugePageCount"
+
+}
