@@ -314,6 +314,7 @@ function Invoke-OracleODBEEProvision{
 #    $Nodes | Invoke-ConfigureSSMTPForOffice365
 #    $Nodes | Invoke-ConfigureMUTTRCForOffice365
     $Nodes |  Invoke-ProcessOracleODBEETemplateFiles -Overwrite
+#    Invoke-SSHCommand -Command "grub2-mkconfig -o /boot/grub2/grub.cfg"
 
 }
 
@@ -1537,7 +1538,7 @@ Function Get-OracleServerDefinition{
 function Set-LinuxFirewall{
 @"
     All
-    firewall-cmd --permanent --add-service=nfs
+    firewall-cmd --permanent --add-service=nfs --add-service=snmp
 
     Zeta
     firewall-cmd --add-port 1526/tcp --permanent 
