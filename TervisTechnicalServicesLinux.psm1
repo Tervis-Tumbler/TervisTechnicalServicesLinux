@@ -302,6 +302,8 @@ function Invoke-OracleODBEEProvision{
     )
     Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
     $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $Nodes | Invoke-ProcessOracleODBEETemplateFiles -Overwrite
+    $Nodes | Join-LinuxToADDomain
     $Nodes | Install-PuppetonLinux
     $Nodes | Invoke-CreateOracleUserAccounts
 #    $Nodes | Set-LinuxFSTABWithPuppet
@@ -313,9 +315,8 @@ function Invoke-OracleODBEEProvision{
 #    $Nodes | New-LinuxISCSISetup
 #    $Nodes | Invoke-ConfigureSSMTPForOffice365
 #    $Nodes | Invoke-ConfigureMUTTRCForOffice365
-    $Nodes |  Invoke-ProcessOracleODBEETemplateFiles -Overwrite
+#    $Nodes |  Invoke-ProcessOracleODBEETemplateFiles -Overwrite
 #    Invoke-SSHCommand -Command "grub2-mkconfig -o /boot/grub2/grub.cfg"
-
 }
 
 function Invoke-OracleApplicationProvision {
@@ -330,7 +331,7 @@ function Invoke-OracleApplicationProvision {
     Where-Object    {-not $_.VM} |
 #    Invoke-OVMApplicationNodeVMProvision -ApplicationName $ApplicationName
     Invoke-OVMApplicationNodeVMProvision
-if ( $Nodes | Where-Objec  {-not $_.VM} ) {
+if ( $Nodes | Where-Object  {-not $_.VM} ) {
         throw "Not all nodes have VMs even after Invoke-ApplicationNodeVMProvision"
     }
     $Nodes | Invoke-ApplicationNodeProvision
