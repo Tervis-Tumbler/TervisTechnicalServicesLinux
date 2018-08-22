@@ -1,0 +1,39 @@
+################## Database Health Check PRDRP and PRDSOA ##########################
+00 5,17 * * * sh /u01/app/oracle/OFS/cron_alert/DB_PROD_S2_HealthCheck.ksh &
+
+################ UNDO alert reached 80% ############################################
+*/30 * * * * sh /u01/app/oracle/OFS/cron_alert/undo.sh &
+*/30 * * * * sh /u01/app/oracle/OFS/cron_alert/undo_bi.sh &
+
+################ Temp Usage ####################################################                                                                                                
+#*/10 * * * * /u01/app/oracle/OFS/cron_alert/TEMP_usage_monitor_PRDBI.sh
+#*/20 * * * * /u01/app/oracle/OFS/cron_alert/TEMP_usage_monitor_PRDDWH.sh
+
+
+################ File Monitoring > 90 ############################################
+#*/05 * * * * /u01/app/oracle/OFS/cron_alert/filesystem.sh
+
+########### Alert log check ####################
+00,05,10,15,20,25,30,35,40,45,50,55 * * * * /u01/app/oracle/OFS/cron_alert/alertcheck_PRD.sh
+
+############## PRDWH DB SERVER LOAD AVERAGE #############
+#*/05 * * * * sh -x /u01/app/oracle/OFS/DBA/tools/MonLoad/MonLoad > /tmp/load.out 2>&1
+
+#*/15 * * * * /patches/OFS_ORACLE/dba/scripts/tbsp_usage_PRDWH.sh 90 > /patches/OFS_ORACLE/dba/scripts/tbsp_usage_PRDWH.log
+
+############## Tablespace more than90% ####################
+*/15 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_PRDBI.sh
+*/15 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_PRDDWH.sh
+
+############# PRDWH RMAN Incremental level 0 backup - Trevera ##################
+30 20 * * 6 $HOME/DBA/scripts/backup_rman.sh PRDWH incr0 > $HOME/DBA/log/backup_rman_incr0_PRDWH.log 2>&1
+
+############# PRDWH RMAN Incremental level 1 backup - Trevera ##################
+30 20 * * 0-5 $HOME/DBA/scripts/backup_rman.sh PRDWH incr1 > $HOME/DBA/log/backup_rman_incr1_PRDWH.log 2>&1
+
+############# PRDWH RMAN Archivelog backup - Trevera ##################
+00 00-20 * * * $HOME/DBA/scripts/backup_rman.sh PRDWH arch > $HOME/DBA/log/backup_rman_arch_PRDWH.log 2>&1
+
+############# PRDBI RMAN Full backup - Trevera ##################
+00 19 * * * $HOME/DBA/scripts/backup_rman.sh PRDBI full > $HOME/DBA/log/backup_rman_full_PRDBI.log 2>&1
+09 07 01 12 * $HOME/DBA/scripts/backup_rman.sh PRDBI full > $HOME/DBA/log/backup_rman_full_PRDBI.log 2>&1

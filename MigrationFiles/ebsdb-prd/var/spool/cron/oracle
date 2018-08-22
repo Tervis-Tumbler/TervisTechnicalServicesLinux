@@ -1,0 +1,93 @@
+#0 1,5,9,13,17,21 * * * sh /patches/FCS_TEKSYSTEM/Venkat_Mannuru/Scripts/jobs/conc_long_running.sh
+#*/10 * * * * sh /patches/FCS_TEKSYSTEM/Venkat_Mannuru/Scripts/jobs/mfmailer_status.sh
+#0 1,13 * * * sh /u01/app/oracle/OFS/cron_alert/conc_long_running.sh
+#*/10 * * * * sh /u01/app/oracle/OFS/cron_alert/mfmailer_status.sh
+
+################## Database Health Check PRD #######################################
+00 5,17 * * * /u01/app/oracle/OFS/cron_alert/DB_PROD_PRD_HealthCheck.sh
+
+################## Database Health Check PRDRP and PRDSOA ##########################
+00 05,17 * * * sh /u01/app/oracle/OFS/cron_alert/DB_PROD_S1_HealthCheck.ksh &
+###
+
+
+################ UNDO alert reached 80% ############################################
+#*/30 * * * * /u01/app/oracle/OFS/cron_alert/undo.sh
+#*/30 * * * * /u01/app/oracle/OFS/cron_alert/undo_rp.sh
+#*/30 * * * * /u01/app/oracle/OFS/cron_alert/undo_soa.sh
+
+#GSS_notify Commented out by Trevera
+#00 07 * * 0 sh /patches/scripts/perfmon/weekly_gss_notify.sh > /patches/scripts/perfmon/log/cron_PRD_GSS_Status_notify.log 2>&1
+
+
+################ Temp Usage ##########################################################
+#*/30 * * * * /u01/app/oracle/OFS/cron_alert/TEMP_usage_monitor_PRD.sh
+#*/20 * * * * /u01/app/oracle/OFS/cron_alert/TEMP_usage_monitor_PRDRP.sh
+#*/20 * * * * /u01/app/oracle/OFS/cron_alert/TEMP_usage_monitor_PRDSOA.sh
+
+#### Checking tnslsnr directory usage ################
+30 6 * * * sh /u01/app/oracle/OFS/cron_alert/tnslsnr_log_check_PRD.sh
+45 6 * * * sh /u01/app/oracle/OFS/cron_alert/file_size_500mb_PRD.sh
+
+
+####### File system alert > 90% #####################
+#don gets his own disk usage alerts gj 6Sep17*/05 * * * * /u01/app/oracle/OFS/cron_alert/filesystem.sh
+
+########### Alert log check ####################
+## Commented out by Trevera ##
+#00,05,10,15,20,25,30,35,40,45,50,55 * * * * /u01/app/oracle/OFS/cron_alert/alertcheck_PRD.sh
+
+####### PRDRP Concurrent request Error #####################
+#*/10 * * * * /u01/app/oracle/OFS/cron_alert/con_err.sh
+
+####### PRD Concurrent request Error #####################
+#*/10 * * * * /u01/app/oracle/OFS/cron_alert/con_err_prd.sh
+
+####### PRD INVALID COUNT #####################
+## Commented out by Trevera ##
+#00,10,20,30,40,50 * * * * sh /u01/app/oracle/OFS/cron_alert/invalid.sh
+
+
+################ open_cursors usage #####################################
+#*/10 * * * *   /u01/app/oracle/OFS/cron_alert/DB_PROD_open_cursor_mon.sh
+
+################# PRD LOGIN PAGE CHECKING ###################
+*/05 * * * * sh -x /u01/app/oracle/OFS/DBA/tools/MonURL/MonURL PRD > /tmp/test.out 2>&1
+
+################ PRD SERVER LOAD AVERAGE ###############
+*/05 * * * * sh -x /u01/app/oracle/OFS/DBA/tools/MonLoad/MonLoad > /tmp/load.out 2>&1
+
+############## Tablespace more than90% ####################
+#*/15 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_PRD.sh
+#*/15 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_PRDRP.sh
+#*/15 * * * * /patches/OFS_ORACLE/dba/scripts/tablespace/tablesapce_usage_PRDSOA.sh
+
+############# PRD RMAN Incremental level 0 backup - Trevera ##################
+00 20 * * 6 $HOME/DBA/scripts/backup_rman.sh incr0 > $HOME/DBA/log/backup_rman_incr0.log 2>&1
+
+############# PRD RMAN Incremental level 1 backup - Trevera ##################
+00 20 * * 0-5 $HOME/DBA/scripts/backup_rman.sh incr1 > $HOME/DBA/log/backup_rman_incr1.log 2>&1
+
+############# PRD RMAN Archivelog backup - Trevera ##################
+00 10-19 * * 0   $HOME/DBA/scripts/backup_rman.sh arch > $HOME/DBA/log/backup_rman_arch.log 2>&1
+00 00-19 * * 1-6 $HOME/DBA/scripts/backup_rman.sh arch > $HOME/DBA/log/backup_rman_arch.log 2>&1
+00 21-23 * * 1-6 $HOME/DBA/scripts/backup_rman.sh arch > $HOME/DBA/log/backup_rman_arch.log 2>&1
+
+############# PRD dbTier Oracle Home backup for automated clone - Trevera ##################
+00 06 * * * $HOME/DBA/scripts/backup_dbtier.sh > $HOME/DBA/log/backup_dbtier.log 2>&1
+50 07 10 06 * $HOME/DBA/scripts/backup_dbtier.sh > $HOME/DBA/log/backup_dbtier.log 2>&1
+
+############# PRDSOA RMAN Full backup - Trevera ##################
+00 03 * * 0-6 $HOME/DBA/scripts/backup_rman_new.sh PRDSOA full > $HOME/DBA/log/backup_rman_full_PRDSOA.log 2>&1
+
+############# PRDRP RMAN Full backup - Trevera ##################
+00 04 * * 0-6 $HOME/DBA/scripts/backup_rman_new.sh PRDRP full > $HOME/DBA/log/backup_rman_full_PRDRP.log 2>&1
+
+############# PRDRP RMAN Archivelog backup - Trevera ##################
+#00 05-23 * * 0-6 $HOME/DBA/scripts/backup_rman_new.sh PRDRP arch > $HOME/DBA/log/backup_rman_arch_PRDRP.log 2>&1
+18 13 26 11 * $HOME/DBA/scripts/backup_rman_new.sh PRDRP arch > $HOME/DBA/log/backup_rman_arch_PRDRP.log 2>&1
+
+################## Weekly Gather Schema Stats - Trevera #######################
+30 18 * * 5 $HOME/trevera/scripts/gss_all.sh > $HOME/trevera/scripts/log/gss_all_script`date +\%Y\%m\%d_\%H\%M`.log 2>&1
+##00 05 * * 6 $HOME/trevera/scripts/gss_ibwp.sh > $HOME/trevera/scripts/log/gss_ibwp_script`date +\%Y\%m\%d_\%H\%M`.log 2>&1
+##testing only ##50 20 * * 4 $HOME/trevera/scripts/gss_test.sh > $HOME/trevera/scripts/log/gss_test_script`date +\%Y\%m\%d_\%H\%M`.log 2>&1

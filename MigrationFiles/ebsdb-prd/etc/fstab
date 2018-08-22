@@ -1,0 +1,25 @@
+
+#
+# /etc/fstab
+# Created by anaconda on Thu May  3 13:03:02 2018
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/ol-root     /                       xfs     defaults        0 0
+UUID=d35a9b9a-c538-46ce-a751-09df61f60525 /boot                   xfs     defaults        0 0
+/dev/mapper/ol-swap     swap                    swap    defaults        0 0
+/dev/u01_vg/u01   /u01    ext3    rw      1 0
+/dev/ebsdata_vg/ebsdata   /ebsdata    ext3    rw      1 0
+/dev/ebsdata2_vg/ebsdata2   /ebsdata2    ext3    rw      1 0
+dfs-10:/navimport/production    /navimport      nfs     rw      0 0
+/dev/rpdata_vg/rpdata /rpdata ext3 rw 1 0
+/dev/rpbin_vg/rpbin /rpbin ext3 rw 1 0
+/dev/soabin_vg/soabin /soabin ext3 rw 1 0
+/dev/soadata_vg/soadata /soadata ext3 rw 1 0
+/dev/archivelogs_vg/archivelogs /archivelogs ext3 rw 1 0
+/dev/temp_vg/temp       /usr/tmp        ext3    rw      1 0
+dfs-10:/EBSPatchBackup      /patches        nfs     rw      0 0
+inf-orabackups.tervis.prv:OracleDatabaseBackups         /backup/primary/database       nfs     rw      0 0
+inf-orabackups.tervis.prv:OracleArchivelogBackups       /backup/primary/archivelogs    nfs     rw      0 0
+inf-orabackups.tervis.prv:OracleOSBackups       /backup/primary/OS    nfs     rw      0 0
