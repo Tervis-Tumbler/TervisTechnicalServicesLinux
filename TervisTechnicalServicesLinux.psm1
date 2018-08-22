@@ -1177,6 +1177,10 @@ group { 'appsdev':
     ensure => 'present',
     gid    => '501',
 }
+group { 'hugetbl':
+    ensure => 'present',
+    gid    => '503',
+}
 user { '$($OracleUserCredential.Username)':
     ensure           => 'present',
     uid              => '501',
@@ -1630,4 +1634,18 @@ function Set-OracleODBEEHugePages{
     $HugePageCount = $SGASize / $HugepageSize
     "vm.nr_hugepages = $HugePageCount"
 
+}
+
+function Invoke-CalculateHugePagesForOracleDatabase{
+    param(
+        [parameter(Mandatory)]$SGASizeInBytes
+    )
+    $NUM_PG = 1
+    foreach($SEG in $SGASize){
+        $MIN_PG = $SEG/($HugePageSize * 1024)
+        if($MIN_PG -gt 0.1){
+            $NUM_PG = $NUM_PG + $MIN_PG + 1
+        }
+    }
+    Write-Host "vm.nr_hugepages = $NUM_PG"
 }
