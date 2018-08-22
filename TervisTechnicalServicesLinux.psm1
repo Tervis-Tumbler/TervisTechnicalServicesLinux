@@ -1559,6 +1559,14 @@ function Set-LinuxFirewall{
     firewall-cmd --add-port 1527/tcp --permanent 
     firewall-cmd --reload
 
+    Production ebsdb-prd
+    firewall-cmd --add-port 1531/tcp --permanent 
+    firewall-cmd --add-port 1521/tcp --permanent
+    firewall-cmd --add-port 1532/tcp --permanent
+
+    Production P-odbee02
+    firewall-cmd --add-port 1522/tcp --permanent 
+    firewall-cmd --add-port 1521/tcp --permanent 
 "@
 }
 
