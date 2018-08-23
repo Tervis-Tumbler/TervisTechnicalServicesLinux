@@ -1638,10 +1638,17 @@ function Set-OracleODBEEHugePages{
 
 function Invoke-CalculateHugePagesForOracleDatabase{
     param(
-        [parameter(Mandatory)]$SGASizeInBytes
+#        [parameter(Mandatory)]$SGASizeInBytes
+        [parameter(Mandatory)]$Computername
     )
+    $SSHSession = New-SSHSession -ComputerName $Computername
+    $HugepageCommand = "grep Hugepagesize /proc/meminfo | awk {'print `$2'}"
+    $SharedMemSegmentCommand = "ipcs -m | awk {'print `$5'} | grep '[0-9][0-9]*'"
+    $HugepageSize = [int]::parse((Invoke-SSHCommand -SSHSession $SSHSession -Command $HugepageCommand).output -split "`n")
+    $SharedMemSegments = (Invoke-SSHCommand -SSHSession $SSHSession -Command $SharedMemSegmentCommand).output -split "`n"
     $NUM_PG = 1
-    foreach($SEG in $SGASize){
+    foreach($SEG in $SharedMemSegments){
+        $SEG = [int64]::parse($SEG)
         $MIN_PG = $SEG/($HugePageSize * 1024)
         if($MIN_PG -gt 0.1){
             $NUM_PG = $NUM_PG + $MIN_PG + 1
