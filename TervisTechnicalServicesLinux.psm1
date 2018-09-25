@@ -1548,11 +1548,19 @@ function Set-LinuxFirewall{
     Zeta
     firewall-cmd --add-port 1526/tcp --permanent 
 
-    Delta
+    Dlt-odbee01
     firewall-cmd --add-port 1521/tcp --permanent 
     firewall-cmd --add-port 1523/tcp --permanent 
     firewall-cmd --add-port 1526/tcp --permanent 
     firewall-cmd --add-port 1527/tcp --permanent 
+    firewall-cmd --reload
+
+    Dlt-odbee02
+    firewall-cmd --add-port 1521/tcp --permanent 
+    firewall-cmd --reload
+
+    Dlt-weblogic02
+    firewall-cmd --add-port 1521/tcp --permanent 
     firewall-cmd --reload
 
     Epsilon
