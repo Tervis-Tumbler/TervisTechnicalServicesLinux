@@ -921,7 +921,6 @@ function Add-OVMNodeIPAddressProperty {
     }
 }
 
-function Invoke-ConfigureSSMTPForOffice365 {
 function Invoke-InstallSSMTPForOffice365 {
     [CmdletBinding()]
     param(
