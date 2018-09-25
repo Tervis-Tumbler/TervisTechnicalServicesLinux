@@ -1656,3 +1656,15 @@ function Invoke-CalculateHugePagesForOracleDatabase{
     }
     Write-Host "vm.nr_hugepages = $NUM_PG"
 }
+
+function Invoke-OpenVPNServerProvision{
+    param(
+        $EnvironmentName
+    )
+    $ApplicationName = "OpenVPNServer"
+    $Environmentname = "Infrastructure"
+    Invoke-ApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+
+}
+
