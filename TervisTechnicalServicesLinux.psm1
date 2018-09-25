@@ -302,21 +302,23 @@ function Invoke-OracleODBEEProvision{
     )
     Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
     $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
-    $Nodes | Invoke-ProcessOracleODBEETemplateFiles -Overwrite
-    $Nodes | Join-LinuxToADDomain
+    $nodes | Invoke-InstallSSMTPForOffice365
+    $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
     $Nodes | Install-PuppetonLinux
     $Nodes | Invoke-CreateOracleUserAccounts
-#    $Nodes | Set-LinuxFSTABWithPuppet
-#    $Nodes | Set-OracleSudoersFile
-#    $Nodes | Set-LinuxHostsFileWithPuppet
-#    $Nodes | Set-LinuxSSHDConfig
-#    $Nodes | Set-LinuxSysCtlWithPuppet
-#    $Nodes | Install-EMCHostAgentOnLinux
-#    $Nodes | New-LinuxISCSISetup
-#    $Nodes | Invoke-ConfigureSSMTPForOffice365
-#    $Nodes | Invoke-ConfigureMUTTRCForOffice365
-#    $Nodes |  Invoke-ProcessOracleODBEETemplateFiles -Overwrite
-#    Invoke-SSHCommand -Command "grub2-mkconfig -o /boot/grub2/grub.cfg"
+}
+
+function Invoke-OracleWeblogicProvision{
+    param (
+        $EnvironmentName
+    )
+    Invoke-OracleApplicationProvision -ApplicationName "OracleWeblogic" -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName "OracleWeblogic" -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $nodes | Invoke-InstallSSMTPForOffice365
+    $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
+    $Nodes | Install-PuppetonLinux
+    $Nodes | Invoke-CreateOracleUserAccounts
+    $Nodes | Invoke-ConfigureSSMTPForOffice365
 }
 
 function Invoke-OracleApplicationProvision {
@@ -772,10 +774,30 @@ realm join $DomainName --computer-ou="$($OrganizationalUnit.DistinguishedName)";
     }
 }
 
-function Invoke-DisjoinLinuxFromADDomain {
+function Invoke-LeaveLinuxADDomain {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession,
-        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ApplicationName
+    )
+    process {
+        $DomainJoinCredential = Get-PasswordstatePassword -AsCredential -ID 2643
+        $CredentialParts = $DomainJoinCredential.UserName -split "@"
+        $UserName = $CredentialParts[0]
+        $DomainName = $CredentialParts[1].ToUpper()
+
+        $OrganizationalUnit = Get-TervisApplicationOrganizationalUnit -ApplicationName $ApplicationName
+
+        $Command = @"
+realm leave $DomainName;
+"@
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+    }
+}
+
+function Invoke-DisjoinLinuxFromADDomain {
+    param (
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SSHSession
     )
     process {
         $DomainJoinCredential = Get-PasswordstatePassword -AsCredential -ID 2643
