@@ -900,15 +900,18 @@ function Add-OVMNodeIPAddressProperty {
 }
 
 function Invoke-ConfigureSSMTPForOffice365 {
+function Invoke-InstallSSMTPForOffice365 {
     [CmdletBinding()]
     param(
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$Computername,
         [parameter(ValueFromPipelineByPropertyName,Mandatory)]$SSHSession
     )
-#    Install RPM - yum package not available
-#    curl -O http://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm
-#    rpm -Uvh epel-release-7-11.noarch.rpm
-
+    $EPELInstallCommand = "curl -O http://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm"
+    $RPMInstallCommand = "rpm -Uvh epel-release-7-11.noarch.rpm"
+    Invoke-SSHCommand -SSHSession $SshSession -Command $EPELInstallCommand
+    Invoke-SSHCommand -SSHSession $SSHSession -Command $RPMInstallCommand
+    Invoke-SSHCommand -SSHSession $SSHSession -Command "yum install ssmtp -y"
+    Invoke-SSHCommand -SSHSession $SSHSession -Command "alternatives --set mta /usr/sbin/sendmail.ssmtp"
 }
 
 function Invoke-ConfigureSSMTPForOffice365 {
@@ -937,7 +940,7 @@ oracle:MailerDaemon@tervis.com:smtp.office365.com:587
     process{
 #        $Credential = Get-PasswordstatePassword -AsCredential -ID $LocalAdminPasswordStateID
 #        New-SSHSession -ComputerName $Computername -Credential $Credential
-        Invoke-SSHCommand -SSHSession $SSHSession -Command $MoveCommand
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $SSMTPMoveCommand
         Invoke-SSHCommand -SSHSession $SSHSession -Command $SSMTPCONF
         Invoke-SSHCommand -SSHSession $SSHSession -Command $DOS2UnixSSMTP
         Invoke-SSHCommand -SSHSession $SSHSession -Command $Revaliases
@@ -1562,7 +1565,6 @@ function Get-OracleODBEEHugePageCount{
     $Memlock = $Memory - ($Memory * .1)
     $HugePageCount = $SGASize / $HugepageSize
     "vm.nr_hugepages = $HugePageCount"
-
 }
 
     param(
