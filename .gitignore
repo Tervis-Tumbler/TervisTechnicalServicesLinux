@@ -1,7 +1,7 @@
 OracleODBEEHome/
-temp/*
+.\temp\*
 temp/etc/sysconfig/network
-temp/agentID.txt
+temp\agentID.txt
 temp/etc/hostname
 temp/etc/hosts
 temp/etc/iscsi/initiatorname.iscsi

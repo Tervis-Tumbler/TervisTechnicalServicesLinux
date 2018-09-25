@@ -1,0 +1,11 @@
+defaults {
+        polling_interval        10
+        max_fds                 8192
+        user_friendly_names     yes
+}
+blacklist {
+        devnode "^(ram|raw|loop|fd|md|dm-|sr|scd|st|nbd)[0-9]*"
+        devnode "^hd[a-z][0-9]*"
+        devnode "^etherd"
+        %include "/etc/blacklisted.wwids"
+}

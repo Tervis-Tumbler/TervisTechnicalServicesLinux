@@ -5,7 +5,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "260000"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"EBSODBEE"}
 },
 [PSCustomObject][Ordered]@{
@@ -15,7 +15,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "128000"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"EBSIAS","RPIAS"}
 },
 [PSCustomObject][Ordered]@{
@@ -25,7 +25,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "250000"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"OBIAODBEE","OBIEEODBEE"}
 },
 [PSCustomObject][Ordered]@{
@@ -35,7 +35,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "128000"
     CPUCount = "16"
     CPUCountLimit = "32"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"SOA Weblogic","OBIEE Weblogic","Disco Weblogic"}
 },
 [PSCustomObject][Ordered]@{
@@ -44,8 +44,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     Memory = "128000"
     MemoryLimit = "192000"
     CPUCount = "8"
-    CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    CPUCountLimit = "8"
+    PinnedCPUs = "20-27"
     Services = {"RP Weblogic"}
 },
 [PSCustomObject][Ordered]@{
@@ -65,7 +65,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "65536"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "20-31"
+    PinnedCPUs = "20-37"
     Services = {"EBSODBEE"}
 },
 [PSCustomObject][Ordered]@{
@@ -75,7 +75,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "65536"
     CPUCount = "4"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"EBSIAS"}
 },
 [PSCustomObject][Ordered]@{
@@ -85,7 +85,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "65536"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"EBSIAS","RPIAS"}
 },
 [PSCustomObject][Ordered]@{
@@ -95,7 +95,17 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "250000"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "20-31"
+    PinnedCPUs = "20-35"
+    Services = {"EBSODBEE","SOAODBEE","RPODBEE","OBIAODBEE"}
+},
+[PSCustomObject][Ordered]@{
+    Computername = "dlt-odbee02"
+    OVMServerName = "inf-ovmc3n2"
+    Memory = "30000"
+    MemoryLimit = "30000"
+    CPUCount = "8"
+    CPUCountLimit = "8"
+    PinnedCPUs = "20-27"
     Services = {"EBSODBEE","SOAODBEE","RPODBEE","OBIAODBEE"}
 },
 [PSCustomObject][Ordered]@{
@@ -105,8 +115,18 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "65536"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"OBIEE Weblogic","SOA Weblogic","RP Weblogic","Disco Weblogic"}
+},
+[PSCustomObject][Ordered]@{
+    Computername = "dlt-weblogic02"
+    OVMServerName = "inf-ovmc3n3"
+    Memory = "30000"
+    MemoryLimit = "30536"
+    CPUCount = "16"
+    CPUCountLimit = "16"
+    PinnedCPUs = "2-17"
+    Services = {"SOA Weblogic"}
 },
 [PSCustomObject][Ordered]@{
     Computername = "dlt-infadac"
@@ -125,7 +145,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "64000"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"EBSIAS","RPIAS"}
 },
 [PSCustomObject][Ordered]@{
@@ -135,7 +155,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "250000"
     CPUCount = "16"
     CPUCountLimit = "32"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"EBSODBEE","SOA ODBEE","RP ODBEE","OBIA ODBEE"}
 },
 [PSCustomObject][Ordered]@{
@@ -145,7 +165,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "256000"
     CPUCount = "16"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"OBIEE Weblogic","SOA Weblogic","RP Weblogic","Disco Weblogic"}
 },
 [PSCustomObject][Ordered]@{
@@ -155,7 +175,7 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     MemoryLimit = "64000"
     CPUCount = "4"
     CPUCountLimit = "16"
-    PinnedCPUs = "2-13"
+    PinnedCPUs = "2-17"
     Services = {"Infadac"}
 },
 [PSCustomObject][Ordered]@{
