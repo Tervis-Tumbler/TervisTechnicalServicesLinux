@@ -1557,7 +1557,11 @@ function Get-LinuxUptime{
     $Date.AddSeconds(-"$UptimeInSeconds")
 }
 
-function Set-OracleODBEEHugePages{
+function Get-OracleODBEEHugePageCount{
+    param(
+        $SGASize,
+        $Memory
+    )
     $HugepageSize = 2048
     $Memlock = $Memory - ($Memory * .1)
     $HugePageCount = $SGASize / $HugepageSize
