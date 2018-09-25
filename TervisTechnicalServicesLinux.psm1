@@ -1279,27 +1279,23 @@ augeas { "limits":
 function Install-EMCHostAgentOnLinux {
     [CmdletBinding()]
     param(
-        [parameter(Mandatory,ValueFromPipeline)]$Node
+        [parameter(Mandatory,ValueFromPipeline)]$SSHSession,
+        [parameter(Mandatory,ValueFromPipeline)]$SFTPSession
     )
     process{
-        $FQDN = $Node.ComputerName + "tervis.prv"
         $HostAgentFilePath = "\\tervis.prv\applications\Installers\EMC\"
         $HostAgentFileName = "HostAgent-Linux-64-x86-en_US-1.3.9.1.0155-1.x86_64.rpm"
         $RemotePath = "/opt"
         $RemoteFile = "$RemotePath/$HostAgentFileName"
-        $AgentIDSSHCommand = @"
-cat >/agentID.txt <<
-$($FQDN)
-$($Node.IPAddress)
-"@
         $PutParams = @{
-            SFTPSession = $Node.SFTPSession
+            SFTPSession = $SFTPSession
             LocalFile = $HostAgentFilePath + $HostAgentFileName
             RemotePath = $RemotePath
         }
         Set-SFTPFile @PutParams        
-        Invoke-SSHCommand -SSHSession $Node.SSHSession -Command "rpm -Uvh $RemoteFile"
-        Invoke-SSHCommand -SSHSession $Node.SSHSession -Command $AgentIDSSHCommand
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "rpm -Uvh $RemoteFile"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "systemctl enable hostagent"
+        Invoke-SSHCommand -SSHSession $SSHSession -Command "systemctl start hostagent"
     }
 }
 
