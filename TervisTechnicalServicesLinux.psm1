@@ -1373,7 +1373,7 @@ function Install-PowershellCoreForLinux {
     }
 }
 
-function Invoke-ProcessOracleODBEETemplateFiles {
+function Invoke-ProcessOracleLinuxTemplateFiles {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
         [Parameter(ValueFromPipelineByPropertyName)]$EnvironmentName,
@@ -1382,9 +1382,9 @@ function Invoke-ProcessOracleODBEETemplateFiles {
         [switch]$Overwrite
     )
     begin {
-        $OracleODBEEModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
-        $OracleODBEEHomeTemplateFilesPath = "$OracleODBEEModulePath\OracleODBEEHome"
-        $OracleODBEETemplateTempPath = "$OracleODBEEModulePath\Temp"
+        $TervisTechnicalservicesLinuxModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
+        $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\OracleLinuxTemplateHome"
+        $OracleODBEETemplateTempPath = "$TervisTechnicalservicesLinuxModulePath\Temp"
         $OracleODBEERootPath = "/"
     }
     process {
@@ -1400,7 +1400,7 @@ function Invoke-ProcessOracleODBEETemplateFiles {
  #           ZookeeperNodeNames = $Nodes.ComputerName
         }
 
-        Invoke-ProcessTemplatePath -Path $OracleODBEEHomeTemplateFilesPath -DestinationPath $OracleODBEETemplateTempPath -TemplateVariables $TemplateVariables
+        Invoke-ProcessTemplatePath -Path $OracleLinuxTemplateFilesPath -DestinationPath $OracleODBEETemplateTempPath -TemplateVariables $TemplateVariables
         Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $OracleODBEETemplateTempPath -SFTPSession $SFTPSession -Overwrite:$Overwrite
     }
 }
@@ -1412,8 +1412,8 @@ function Copy-OracleServerIdentityToNewSystem {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress
     )
     begin {
-        $OracleODBEEModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
-        $ServerMigrationSourceFilePath = "$OracleODBEEModulePath\MigrationFiles\$ComputernameOfServerBeingReplaced"
+        $TervisTechnicalservicesLinuxModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
+        $ServerMigrationSourceFilePath = "$TervisTechnicalservicesLinuxModulePath\MigrationFiles\$ComputernameOfServerBeingReplaced"
         $OracleODBEERootPath = "/"
     }
     process {
