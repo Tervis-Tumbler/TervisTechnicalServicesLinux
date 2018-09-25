@@ -1588,28 +1588,7 @@ function Get-OracleODBEEHugePageCount{
     "vm.nr_hugepages = $HugePageCount"
 }
 
-    param(
-        $SSHSession,
-        $MountName,
-        $DevPath
-    )    
-    $VolumeGroupName = $MountName + "_vg"
-    $SSHCommand = @"
-pvcreate $DevPath;
-sleep 1;
-vgcreate $VolumeGroupName $DevPath;
-sleep 1;
-lvcreate -l 100%FREE -n $MountName $VolumeGroupName;
-sleep 1;
-mkfs.ext4 -m 0 /dev/$VolumeGroupName/$MountName;
-sleep 1;
-echo "/dev/$VolumeGroupName/$MountName /$MountName ext4 rw 1 0" >> /etc/fstab;
-mkdir -p /$MountName;
-mount /$MountName;
-mkdir -p /$MountName/app;
-"@
-    Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
-}function Invoke-CalculateHugePagesForOracleDatabase{
+function Invoke-CalculateHugePagesForOracleDatabase{
     param(
 #        [parameter(Mandatory)]$SGASizeInBytes
         [parameter(Mandatory)]$Computername
@@ -1641,3 +1620,26 @@ function Invoke-OpenVPNServerProvision{
 
 }
 
+function New-TervisLinuxDisk{
+    param(
+        $SSHSession,
+        $MountName,
+        $DevPath
+    )    
+    $VolumeGroupName = $MountName + "_vg"
+    $SSHCommand = @"
+pvcreate $DevPath;
+sleep 1;
+vgcreate $VolumeGroupName $DevPath;
+sleep 1;
+lvcreate -l 100%FREE -n $MountName $VolumeGroupName;
+sleep 1;
+mkfs.ext4 -m 0 /dev/$VolumeGroupName/$MountName;
+sleep 1;
+echo "/dev/$VolumeGroupName/$MountName /$MountName ext4 rw 1 0" >> /etc/fstab;
+mkdir -p /$MountName;
+mount /$MountName;
+mkdir -p /$MountName/app;
+"@
+    Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
+}
