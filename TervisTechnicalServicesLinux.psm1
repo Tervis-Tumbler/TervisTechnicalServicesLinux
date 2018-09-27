@@ -1494,14 +1494,17 @@ function Set-LinuxFirewall{
     firewall-cmd --add-port 1523/tcp --permanent 
     firewall-cmd --add-port 1526/tcp --permanent 
     firewall-cmd --add-port 1527/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
     firewall-cmd --reload
 
     Dlt-odbee02
     firewall-cmd --add-port 1521/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
     firewall-cmd --reload
 
     Dlt-weblogic02
     firewall-cmd --add-port 1521/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
     firewall-cmd --reload
 
     Epsilon
@@ -1510,16 +1513,21 @@ function Set-LinuxFirewall{
     firewall-cmd --add-port 1523/tcp --permanent 
     firewall-cmd --add-port 1526/tcp --permanent 
     firewall-cmd --add-port 1527/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
     firewall-cmd --reload
 
     Production ebsdb-prd
     firewall-cmd --add-port 1531/tcp --permanent 
     firewall-cmd --add-port 1521/tcp --permanent
     firewall-cmd --add-port 1532/tcp --permanent
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --reload
 
     Production P-odbee02
     firewall-cmd --add-port 1522/tcp --permanent 
     firewall-cmd --add-port 1521/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --reload
 "@
 }
 
