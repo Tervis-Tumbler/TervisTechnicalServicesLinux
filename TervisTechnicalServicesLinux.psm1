@@ -1500,6 +1500,10 @@ function Set-LinuxFirewall{
     Dlt-odbee02
     firewall-cmd --add-port 1523/tcp --permanent 
     firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --add-port 7002/tcp --permanent
+    firewall-cmd --add-port 7003/tcp --permanent
+    firewall-cmd --add-port 7004/tcp --permanent
+    firewall-cmd --add-port 7005/tcp --permanent
     firewall-cmd --reload
 
     Dlt-weblogic02
