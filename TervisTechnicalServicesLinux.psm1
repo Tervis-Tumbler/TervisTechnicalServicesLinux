@@ -1509,6 +1509,7 @@ function Set-LinuxFirewall{
     Dlt-weblogic02
     firewall-cmd --add-port 1521/tcp --permanent 
     firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --add-port 7006/tcp --permanent 
     firewall-cmd --reload
 
     Epsilon
