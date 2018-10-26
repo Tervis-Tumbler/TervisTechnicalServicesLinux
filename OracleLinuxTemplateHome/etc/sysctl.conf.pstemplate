@@ -35,3 +35,11 @@ vm.swappiness = 0
 fs.nfs.nfs_callback_tcpport = 32764
 fs.nfs.nlm_tcpport = 32768
 fs.nfs.nlm_udpport = 32768
+
+
+net.core.rmem_max = 134217728
+net.core.wmem_max = 134217728
+net.ipv4.tcp_rmem = 4096 87380 134217728
+net.ipv4.tcp_wmem = 4096 65536 134217728
+net.core.netdev_max_backlog = 300000
+net.ipv4.tcp_moderate_rcvbuf =1
