@@ -1759,7 +1759,7 @@ function Start-OracleIAS{
     $TimeSpan = New-TimeSpan -Minutes 5
     $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
     $IASStartupCommand = "adstrtall $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
-    $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep "\<$($SID)\>" | wc -l"
+    $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l"
     $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
@@ -1783,8 +1783,8 @@ function Stop-OracleIAS{
     $TimeSpan = New-TimeSpan -Minutes 5
     $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
     $IASShutdownCommand = "adstpall $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
-    $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep "\<$($SID)\>" | wc -l"
-    $IASProcessCleanupKillCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep "\<$($SID)\>" | awk -v FS='/' '{print `$3}' | xargs kill -9"
+    $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l"
+    $IASProcessCleanupKillCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | awk -v FS='/' '{print `$3}' | xargs kill -9"
     $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
