@@ -1657,3 +1657,145 @@ mkdir -p /$MountName/app;
 "@
     Invoke-SSHCommand -Command $SSHCommand -SSHSession $SSHSession
 }
+
+function Stop-OracleDatabaseListener{
+    param(
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$Computername,
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SID,
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SSHSession
+    )
+    $ListenerProcessCount = (Invoke-SSHCommand -SSHSession $SSHSession -Command $GetTNSListenerProcessCmd).Output
+    if ($ListenerProcessCount -ge 1){
+        $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+        $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+        $SSHShellStream.WriteLine($SID.ToLower())
+        $SSHShellStream.WriteLine("lsnrctl stop $SID")
+    }
+}
+
+function Start-OracleDatabaseListener{
+    param(
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$Computername,
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SID,
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SSHSession
+    )
+        $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+        $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+        $SSHShellStream.WriteLine($SID.ToLower())
+        $SSHShellStream.WriteLine("lsnrctl start $SID")
+}
+
+function Stop-OracleDatabase{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $DatabaseShutdownCommand = @"
+sqlplus "/ as sysdba" <<EOF
+shutdown immediate;
+exit;
+EOF
+"@
+    $TerminateDBConnectionsCommand = "ps -u `${LOGNAME} -o pid,args | grep 'oracle$($SID) (LOCAL=NO)' | grep -v grep | sort -r -n | awk '{print `$1}' | xargs kill -9"
+
+    if ($ListenerProcessCount -ge 1){
+        $ExpectString = "SSHShellStreamPrompt"
+        $TimeSpan = New-TimeSpan -Minutes 5
+        Invoke-SSHCommand -SSHSession $SSHSession -Command $TerminateDBConnectionsCommand
+        $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+        $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+        $SSHShellStream.WriteLine($SID.ToLower())
+        $SSHShellStream.WriteLine($DatabaseShutdownCommand)
+        if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
+            Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
+        }    
+    }
+}
+
+function Start-OracleDatabase{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $DatabaseStartupCommand = @"
+sqlplus "/ as sysdba" <<EOF
+startup;
+exit;
+EOF
+"@
+    if ($ListenerProcessCount -le 1){
+        $ExpectString = "SSHShellStreamPrompt"
+        $TimeSpan = New-TimeSpan -Minutes 5
+        $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+        $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+        $SSHShellStream.WriteLine($SID.ToLower())
+        $SSHShellStream.WriteLine($DatabaseStartupCommand)
+        if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
+            Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
+        }    
+    }
+}
+
+function Stop-OracleDatabaseTier{
+    [CmdletBinding()]
+    param(
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$Computername,
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SID,
+        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SSHSession
+    )
+    Stop-OracleDatabaseListener -Computername $Computername -SID $SID -SSHSession $SSHSession
+    Stop-OracleDatabase -Computername $Computername -SID $SID -SSHSession $SSHSession
+}
+
+function Start-OracleIAS{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
+    $IASStartupCommand = "adstrtall $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
+    $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep "\<$($SID)\>" | wc -l"
+    $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    
+    if($IASProcessCount -le 1){
+        $SSHShellStream.WriteLine($IASStartupCommand)
+    }
+        if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
+        Write-Error -Message "IAS Startup Timed Out" -Category LimitsExceeded -ErrorAction Continue
+    }    
+}
+
+function Stop-OracleIAS{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
+    $IASShutdownCommand = "adstpall $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
+    $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep "\<$($SID)\>" | wc -l"
+    $IASProcessCleanupKillCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep "\<$($SID)\>" | awk -v FS='/' '{print `$3}' | xargs kill -9"
+    $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    
+    if($IASProcessCount -ge 1){
+        $SSHShellStream.WriteLine($IASShutdownCommand)
+    }
+        if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
+        Write-Error -Message "IAS Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Continue
+    }    
+    Start-Sleep 120
+    Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCleanupKillCommand
+}
