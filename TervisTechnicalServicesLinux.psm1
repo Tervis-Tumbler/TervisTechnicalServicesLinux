@@ -1799,3 +1799,205 @@ function Stop-OracleIAS{
     Start-Sleep 120
     Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCleanupKillCommand
 }
+
+
+function Stop-OracleInfadac{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $DACWLBinPath = "/u01/app/applmgr/BI_INSTALL/HOME_DAC_DEV/dac"
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($DACWLBinPath)")
+    $SSHShellStream.WriteLine("$($DACWLBinPath)/stopWeblogic.sh")
+}
+
+function Stop-OracleRPWeblogic{
+param(
+    [parameter(mandatory)]$Computername,
+    [parameter(mandatory)]$SID,
+    [parameter(mandatory)]$SSHSession
+)
+$WLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
+$UIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+$ExpectString = "SSHShellStreamPrompt"
+$TimeSpan = New-TimeSpan -Minutes 5
+$SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+$SSHShellStream.WriteLine($SID.ToLower())
+$SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+$SSHShellStream.WriteLine("cd $($WLServerBinPath)")
+$SSHShellStream.WriteLine("$($WLServerBinPath)/stopWeblogic.sh")
+$SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+$SSHShellStream.WriteLine("$($UIDomainBinPath)/stopWeblogic.sh")
+}
+
+function Stop-OracleDiscoverer{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $UIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/bin"
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.WriteLine("opmnctl stopall")
+    $SSHShellStream.WriteLine("$($UIDomainBinPath)/stopWeblogic.sh")
+}
+
+function Stop-OracleSAOWeblogic{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $UIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/bin"
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.WriteLine("$($UIDomainBinPath)/stopWeblogic.sh")
+}
+
+function Stop-OracleBIWeblogic{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $UIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/bin"
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.WriteLine("opmnctl stopall")
+    $SSHShellStream.WriteLine("$($UIDomainBinPath)/stopWeblogic.sh")
+}
+
+function Start-OracleInfadac{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $DACWLBinPath = "/u01/app/applmgr/BI_INSTALL/HOME_DAC_DEV/dac"
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($DACWLBinPath)")
+    $SSHShellStream.WriteLine("nohup $($DACWLBinPath)/startserver.sh")
+}
+
+function Start-OracleRPWeblogic{
+param(
+    [parameter(mandatory)]$Computername,
+    [parameter(mandatory)]$SID,
+    [parameter(mandatory)]$SSHSession
+)
+$WLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
+$UIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+$ExpectString = "SSHShellStreamPrompt"
+$TimeSpan = New-TimeSpan -Minutes 5
+$SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+$SSHShellStream.WriteLine($SID.ToLower())
+$SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+$SSHShellStream.WriteLine("cd $($WLServerBinPath)")
+$SSHShellStream.WriteLine("rm -f nohup.out")
+$SSHShellStream.WriteLine("$($WLServerBinPath)/startNodeManager.sh &")
+$SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+$SSHShellStream.WriteLine("nohup $($UIDomainBinPath)/startWeblogic.sh &")
+}
+
+function Start-OracleDiscoverer{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $UIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/bin"
+    $WLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $startNodeManagerTailCommand = @"
+   tail -f test  | while read LOGLINE
+   do
+   [[ "${LOGLINE}" == *"Secure socket listener started on port* ]] && pkill -P $$ tail
+   done
+   "@
+    
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
+    $SSHShellStream.WriteLine("rm -f nohup.out")
+    $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
+    $SSHShellStream.WriteLine($startNodeManagerTailCommand)
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+
+    $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.WriteLine("opmnctl startall")
+    $SSHShellStream.WriteLine("rm -f nohup.out")
+    $SSHShellStream.WriteLine("nohup startWeblogic.sh &")
+####Start Managed Server###
+}
+
+function Start-OracleSAOWeblogic{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $WLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
+    $UIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/bin"
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
+    $SSHShellStream.WriteLine("rm -f nohup.out")
+    $SSHShellStream.WriteLine("nohup ./startNodeManager.sh &")
+    $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.WriteLine("rm -f nohup.out")
+    $SSHShellStream.WriteLine("nohup startWeblogic.sh &")
+###Start SOA Managed Servers###
+}
+
+function Start-OracleBIWeblogic{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $WLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
+    $UIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/bin"
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
+    $SSHShellStream.WriteLine("rm -f nohup.out")
+    $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
+    $SSHShellStream.WriteLine($startNodeManagerTailCommand)
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.WriteLine("opmnctl startall")
+    $SSHShellStream.WriteLine("rm -f nohup.out")
+    $SSHShellStream.WriteLine("nohup startWeblogic.sh &")
+###Start BI Managed Server###
+}
