@@ -1933,11 +1933,11 @@ function Start-OracleDiscoverer{
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $startNodeManagerTailCommand = @"
-   tail -f test  | while read LOGLINE
-   do
-   [[ "${LOGLINE}" == *"Secure socket listener started on port* ]] && pkill -P $$ tail
-   done
-   "@
+tail -f test  | while read LOGLINE
+do
+[[ "${LOGLINE}" == *"Secure socket listener started on port* ]] && pkill -P $$ tail
+done
+"@
     
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
