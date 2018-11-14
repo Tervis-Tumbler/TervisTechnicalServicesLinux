@@ -1807,7 +1807,8 @@ function Stop-OracleInfadac{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $DACWLBinPath = "/u01/app/applmgr/BI_INSTALL/HOME_DAC_DEV/dac"
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $DACWLBinPath = $ServiceBinPaths.InfaDACWLBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1823,8 +1824,9 @@ param(
     [parameter(mandatory)]$SID,
     [parameter(mandatory)]$SSHSession
 )
-$WLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
-$UIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+$ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+$WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
+$UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
 $ExpectString = "SSHShellStreamPrompt"
 $TimeSpan = New-TimeSpan -Minutes 5
 $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1842,7 +1844,8 @@ function Stop-OracleDiscoverer{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $UIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/bin"
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $UIDomainBinPath = $ServiceBinPaths.DiscoUIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1859,7 +1862,8 @@ function Stop-OracleSAOWeblogic{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $UIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/bin"
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $UIDomainBinPath = $ServiceBinPaths.SOAUIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1875,7 +1879,8 @@ function Stop-OracleBIWeblogic{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $UIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/bin"
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1892,7 +1897,8 @@ function Start-OracleInfadac{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $DACWLBinPath = "/u01/app/applmgr/BI_INSTALL/HOME_DAC_DEV/dac"
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $DACWLBinPath = $ServiceBinPaths.InfaDACWLBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1908,8 +1914,9 @@ param(
     [parameter(mandatory)]$SID,
     [parameter(mandatory)]$SSHSession
 )
-$WLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
-$UIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+$ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+$WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
+$UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
 $ExpectString = "SSHShellStreamPrompt"
 $TimeSpan = New-TimeSpan -Minutes 5
 $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1928,8 +1935,9 @@ function Start-OracleDiscoverer{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $UIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/bin"
-    $WLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $WLServerBinPath = $ServiceBinPaths.DiscoWLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.DiscoUIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $startNodeManagerTailCommand = @"
@@ -1961,8 +1969,9 @@ function Start-OracleSAOWeblogic{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $WLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
-    $UIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/bin"
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $WLServerBinPath = $ServiceBinPaths.SOAWLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.SOAUIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1983,8 +1992,9 @@ function Start-OracleBIWeblogic{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $WLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
-    $UIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/bin"
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $WLServerBinPath = $ServiceBinPaths.BIWLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -2000,4 +2010,11 @@ function Start-OracleBIWeblogic{
     $SSHShellStream.WriteLine("rm -f nohup.out")
     $SSHShellStream.WriteLine("nohup startWeblogic.sh &")
 ###Start BI Managed Server###
+}
+
+Function Get-TervisOracleServiceBinPaths{
+    Param(
+        $SID
+    )
+    $TervisOracleServiceBinPaths |  Where-Object {-not $SID -or $_.SID -In $SID}
 }
