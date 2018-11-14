@@ -2073,6 +2073,7 @@ function Stop-TervisOracleSITEnvironment{
 }
 
 function Start-TervisOracleDEVEnvironment{
+    $RPWeblogic = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RP Weblogic"
     $DiscoWeblogic = Get-OracleServerDefinition -SID DEVDisco | Where-Object Services -Match "Disco Weblogic"
     $BIWeblogic = Get-OracleServerDefinition -SID DEVBI | Where-Object Services -Match "OBIEE Weblogic"
     $SOAWeblogic = Get-OracleServerDefinition -SID DEVSOA | Where-Object Services -Match "SOA Weblogic"
