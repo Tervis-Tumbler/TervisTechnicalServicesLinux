@@ -254,6 +254,20 @@ $TervisOracleServiceBinPaths = [PSCustomObject][Ordered]@{
         RPUIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
         InfaDACWLBinPath = "/u01/app/applmgr/BI_INSTALL/HOME_DAC/dac"
     }
+},
+[PSCustomObject][Ordered]@{
+    SID = "PRD"
+    Paths = [PSCustomObject][Ordered]@{
+        SOAWLServerBinPath = "/soabin/Middleware_SOA/wlserver_10.3/server/bin"
+        SOAUIDomainBinPath = "/soabin/Middleware_SOA/user_projects/domains/PRDSOA_Domain/bin"
+        BIWLServerBinPath = "/obieebin/Middleware_BI/wlserver_10.3/server/bin"
+        BIUIDomainBinPath = "/obieebin/Middleware_BI/user_projects/domains/PRD_BIDomain/bin"
+        DiscoWLServerBinPath = "/discobin/Middleware_DISCO/wlserver_10.3/server/bin"
+        DiscoUIDomainBinPath = "/discobin/Middleware_DISCO/user_projects/domains/PRD_DiscoDomain/bin"
+        RPWLServerBinPath = "/rpbin/Middleware_RP/wlserver_10.3/server/bin"
+        RPUIDomainBinPath = "/rpbin/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+        InfaDACWLBinPath = "/infadacbin/app/applmgr/BI_INSTALL/product/HOME_DAC/dac"
+    }
 }
 
 
