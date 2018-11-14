@@ -1,6 +1,6 @@
 ﻿#Requires -Modules TervisVirtualization
 $ModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
-. $ModulePath\OracleServerDefinitions.ps1
+. $ModulePath\TervisTechnicalServicesLinuxDefinitions.ps1
 
 
 function Invoke-LinuxSFTPServiceVMProvision {
@@ -1477,9 +1477,15 @@ function Invoke-ReplicateLocalWindowsPathToLinux {
 
 Function Get-OracleServerDefinition{
     Param(
-        $Computername
+        [parameter(mandatory, ParameterSetName="Computername")]$Computername,
+        [parameter(Mandatory, ParameterSetName="SID")]$SID
     )
-    $OracleServerDefinitions |  Where-Object {-not $Computername -or $_.Computername -In $Computername}
+    If($Computername){
+        $OracleServerDefinitions |  Where-Object {-not $Computername -or $_.Computername -In $Computername}
+    }
+    If($SID){
+        $OracleServerDefinitions |  Where-Object SID -EQ $SID
+    }
 }
 
 function Set-LinuxFirewall{
@@ -1660,9 +1666,9 @@ mkdir -p /$MountName/app;
 
 function Stop-OracleDatabaseListener{
     param(
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$Computername,
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SID,
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SSHSession
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
     )
     $ListenerProcessCount = (Invoke-SSHCommand -SSHSession $SSHSession -Command $GetTNSListenerProcessCmd).Output
     if ($ListenerProcessCount -ge 1){
@@ -1675,9 +1681,9 @@ function Stop-OracleDatabaseListener{
 
 function Start-OracleDatabaseListener{
     param(
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$Computername,
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SID,
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SSHSession
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
     )
         $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
         $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
@@ -1741,9 +1747,9 @@ EOF
 function Stop-OracleDatabaseTier{
     [CmdletBinding()]
     param(
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$Computername,
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SID,
-        [parameter(mandatory)][ValidateSet("zet-odbee01")]$SSHSession
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
     )
     Stop-OracleDatabaseListener -Computername $Computername -SID $SID -SSHSession $SSHSession
     Stop-OracleDatabase -Computername $Computername -SID $SID -SSHSession $SSHSession
@@ -2014,7 +2020,95 @@ function Start-OracleBIWeblogic{
 
 Function Get-TervisOracleServiceBinPaths{
     Param(
-        $SID
+        [parameter(mandatory)]$SID
     )
     $TervisOracleServiceBinPaths |  Where-Object {-not $SID -or $_.SID -In $SID}
+}
+
+function Stop-TervisOracleDEVEnvironment{
+    $RPWeblogic = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RP Weblogic"
+    $DiscoWeblogic = Get-OracleServerDefinition -SID DEVDisco | Where-Object Services -Match "Disco Weblogic"
+    $BIWeblogic = Get-OracleServerDefinition -SID DEVBI | Where-Object Services -Match "OBIEE Weblogic"
+    $SOAWeblogic = Get-OracleServerDefinition -SID DEVSOA | Where-Object Services -Match "SOA Weblogic"
+    $RPIAS = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RPIAS"
+    $EBSIAS = Get-OracleServerDefinition -SID DEV | Where-Object Services -Match "EBSIAS"
+    $EBSODBEE = Get-OracleServerDefinition -SID DEV | Where-Object Services -Match "EBSODBEE"
+    $SOAODBEE = Get-OracleServerDefinition -SID DEVSOA | Where-Object Services -Match "SOAODBEE"
+    $OBIAODBEE = Get-OracleServerDefinition -SID DEVBI | Where-Object Services -Match "OBIAODBEE"
+    $OBIEEODBEE = Get-OracleServerDefinition -SID DEVDWH | Where-Object Services -Match "OBIAODBEE"
+    $RPODBEE = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RPODBEE"
+    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername
+    Stop-OracleDiscoverer -Computername $DiscoWeblogic.Computername
+    Stop-OracleBIWeblogic -Computername $BIWeblogic.Computername
+    Stop-OracleSAOWeblogic -Computername $SOAWeblogic.Computername
+    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername
+    Stop-OracleIAS -Computername $RPIAS.Computername -SID DEVRP
+    Stop-OracleIAS -Computername $EBSIAS.ComputerName -SID DEV
+    Stop-OracleDatabase -Computername $OBIEEODBEE.$Computername -SID DEVDWH
+    Stop-OracleDatabase -Computername $OBIAODBEE.$Computername -SID DEVBI
+    Stop-OracleDatabase -Computername $RPODBEE.$Computername -SID DEVRP
+    Stop-OracleDatabase -Computername $SOAODBEE.$Computername -SID DEVSOA
+    Stop-OracleDatabase -Computername $EBSODBEE.$Computername -SID DEV
+}
+
+function Stop-TervisOracleSITEnvironment{
+    $RPWeblogic = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RP Weblogic"
+    $DiscoWeblogic = Get-OracleServerDefinition -SID SITDisco | Where-Object Services -Match "Disco Weblogic"
+    $BIWeblogic = Get-OracleServerDefinition -SID SITBI | Where-Object Services -Match "OBIEE Weblogic"
+    $SOAWeblogic = Get-OracleServerDefinition -SID SITSOA | Where-Object Services -Match "SOA Weblogic"
+    $RPIAS = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RPIAS"
+    $EBSIAS = Get-OracleServerDefinition -SID SIT | Where-Object Services -Match "EBSIAS"
+    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername
+    Stop-OracleDiscoverer -Computername $DiscoWeblogic.Computername
+    Stop-OracleBIWeblogic -Computername $BIWeblogic.Computername
+    Stop-OracleSAOWeblogic -Computername $SOAWeblogic.Computername
+    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername
+    Stop-OracleIAS -Computername $RPIAS.Computername -SID SITRP
+    Stop-OracleIAS -Computername $EBSIAS.ComputerName -SID SIT
+    Stop-OracleDatabase -Computername $OBIEEODBEE.$Computername -SID SITDWH
+    Stop-OracleDatabase -Computername $OBIAODBEE.$Computername -SID SITBI
+    Stop-OracleDatabase -Computername $RPODBEE.$Computername -SID SITRP
+    Stop-OracleDatabase -Computername $SOAODBEE.$Computername -SID SITSOA
+    Stop-OracleDatabase -Computername $EBSODBEE.$Computername -SID SIT
+}
+
+function Start-TervisOracleDEVEnvironment{
+    $DiscoWeblogic = Get-OracleServerDefinition -SID DEVDisco | Where-Object Services -Match "Disco Weblogic"
+    $BIWeblogic = Get-OracleServerDefinition -SID DEVBI | Where-Object Services -Match "OBIEE Weblogic"
+    $SOAWeblogic = Get-OracleServerDefinition -SID DEVSOA | Where-Object Services -Match "SOA Weblogic"
+    $RPIAS = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RPIAS"
+    $EBSIAS = Get-OracleServerDefinition -SID DEV | Where-Object Services -Match "EBSIAS"
+    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername
+    Start-OracleDiscoverer -Computername $DiscoWeblogic.Computername
+    Start-OracleBIWeblogic -Computername $BIWeblogic.Computername
+    Start-OracleSAOWeblogic -Computername $SOAWeblogic.Computername
+    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername
+    Start-OracleIAS -Computername $RPIAS.Computername -SID DEVRP
+    Start-OracleIAS -Computername $EBSIAS.ComputerName -SID DEV
+    Start-OracleDatabase -Computername $OBIEEODBEE.$Computername -SID DEVDWH
+    Start-OracleDatabase -Computername $OBIAODBEE.$Computername -SID DEVBI
+    Start-OracleDatabase -Computername $RPODBEE.$Computername -SID DEVRP
+    Start-OracleDatabase -Computername $SOAODBEE.$Computername -SID DEVSOA
+    Start-OracleDatabase -Computername $EBSODBEE.$Computername -SID DEV
+}
+
+function Start-TervisOracleSITEnvironment{
+    $RPWeblogic = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RP Weblogic"
+    $DiscoWeblogic = Get-OracleServerDefinition -SID SITDisco | Where-Object Services -Match "Disco Weblogic"
+    $BIWeblogic = Get-OracleServerDefinition -SID SITBI | Where-Object Services -Match "OBIEE Weblogic"
+    $SOAWeblogic = Get-OracleServerDefinition -SID SITSOA | Where-Object Services -Match "SOA Weblogic"
+    $RPIAS = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RPIAS"
+    $EBSIAS = Get-OracleServerDefinition -SID SIT | Where-Object Services -Match "EBSIAS"
+    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername
+    Start-OracleDiscoverer -Computername $DiscoWeblogic.Computername
+    Start-OracleBIWeblogic -Computername $BIWeblogic.Computername
+    Start-OracleSAOWeblogic -Computername $SOAWeblogic.Computername
+    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername
+    Start-OracleIAS -Computername $RPIAS.Computername -SID SITRP
+    Start-OracleIAS -Computername $EBSIAS.ComputerName -SID SIT
+    Start-OracleDatabase -Computername $OBIEEODBEE.$Computername -SID SITDWH
+    Start-OracleDatabase -Computername $OBIAODBEE.$Computername -SID SITBI
+    Start-OracleDatabase -Computername $RPODBEE.$Computername -SID SITRP
+    Start-OracleDatabase -Computername $SOAODBEE.$Computername -SID SITSOA
+    Start-OracleDatabase -Computername $EBSODBEE.$Computername -SID SIT
 }
