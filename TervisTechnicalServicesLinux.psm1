@@ -2112,4 +2112,55 @@ function Start-TervisOracleSITEnvironment{
     Start-OracleDatabase -Computername $RPODBEE.$Computername -SID SITRP
     Start-OracleDatabase -Computername $SOAODBEE.$Computername -SID SITSOA
     Start-OracleDatabase -Computername $EBSODBEE.$Computername -SID SIT
+}function Get-LinuxSSCommandTCPInformation{
+    param(
+        [parameter(Mandatory)]$Hostname,
+        [parameter(Mandatory)]$SampleCount,
+        $DSTFilterIPs,
+        $SRCFilterIPs
+    )
+$Template = @"
+Netid  State      Recv-Q Send-Q Local Address:Port                 Peer Address:Port
+tcp    ESTAB      {Recv_Q*:0}      {Send_Q:48}     10.172.44.11:46525                {Peer_Address:10.172.70.6}:iscsi-target
+         cubic wscale:{Send_WScale:8},{Recv_WScale:4} rto:{ReTran_Timeout:201} rtt:{RndTrpTime:0.418/0.438} ato:{ACK_Timeout:41} mss:{MaxSegSize:1448} rcvmss:{rcvmss:1448} advmss:{advmss:1448} cwnd:{CongWndSize:186} ssthresh:{TCPCongSlowStartThresh:234} bytes_acked:{bytes_acked:59287118445} bytes_received:{Bytes_Received:923409709928} send {Send:5154.6Mbps} lastsnd:{LastSND:16} lastrcv:{LastRCV:19} lastack:{LastACK:19} pacing_rate {Pacing_Rate:10293.8Mbps} unacked:{Unacked:1} retrans:{Retrans:0/3276} reordering:{Reordering:14} rcv_rtt:{RCV_RTT:5.875} rcv_space:{RCV_Space:1413168}
+tcp    ESTAB      0      15856  10.172.44.11:30921                10.172.70.5:iscsi-target
+         cubic wscale:8,4 rto:210 rtt:9.3/0.288 ato:40 mss:1448 rcvmss:1448 advmss:1448 cwnd:222 ssthresh:220 bytes_acked:546859433709 bytes_received:2743214401768 send 276.5Mbps lastsnd:10 lastrcv:12 pacing_rate 553.0Mbps unacked:12 retrans:0/48295 reordering:189 rcv_rtt:1.875 rcv_space:2720440
+tcp    ESTAB      0      0      10.172.44.11:28805                10.172.68.6:iscsi-target
+         cubic wscale:8,4 rto:203 rtt:2.041/3.316 ato:40 mss:1448 rcvmss:1448 advmss:1448 cwnd:196 ssthresh:199 bytes_acked:65343536277 bytes_received:1058171456792 send 1112.4Mbps lastsnd:10 pacing_rate 2224.0Mbps retrans:0/3437 reordering:51 rcv_rtt:5 rcv_space:1250544
+tcp    ESTAB      0      0      10.172.44.11:48410                10.172.68.5:iscsi-target
+         cubic wscale:8,4 rto:201 rtt:0.233/0.033 ato:40 mss:1448 rcvmss:1448 advmss:1448 cwnd:252 ssthresh:213 bytes_acked:574261187589 bytes_received:2900556707632 send 12528.6Mbps lastsnd:89 lastrcv:88 lastack:88 pacing_rate 24976.8Mbps retrans:0/51828 reordering:186 rcv_rtt:2.25 rcv_space:3396888
+"@
+    $SSCommand = "ss -i "
+    if($SRCFilterIPs){
+        foreach ($SRCIP in $SRCFilterIPs){
+            if([array]::indexof($DSTFilterIPs,$DSTIP) -gt 0){
+                $SSCommand += " or src $SRCIP"
+            }
+            else{
+                $SSCommand += " src $SRCIP"    
+            }
+        }
+    }
+    if($DSTFilterIPs){
+        if($SRCFilterIPs){
+            $SSCommand += " or "
+        }
+        foreach ($DSTIP in $DSTFilterIPs){
+            
+            if([array]::indexof($DSTFilterIPs,$DSTIP) -gt 0){
+                $SSCommand += " or dst $DSTIP"
+            }
+            else{
+                $SSCommand += " dst $DSTIP"    
+            }
+        }
+    }
+    $Credential = Find-PasswordstatePassword -HostName $Hostname -UserName root -AsCredential
+    $SSHSession = new-sshsession -HostName $Hostname -Credential $Credential
+    $SSHCommand = "ss -i dst 10.172.68.5 or dst 10.172.68.6 or dst 10.172.70.5 or dst 10.172.70.6 or src 10.172.68.5 or src 10.172.68.6 or src 10.172.70.5 or src 10.172.75.6"
+    $SSOutput = 1..$SampleCount | ForEach-Object{(Invoke-SSHCommand -SSHSession $SshSession -Command $SSHCommand).output}
+
+    $FormattedSSOutput = $SSOutput | ConvertFrom-String -TemplateContent $Template
+    $FormattedSSOutput | Sort-Object -Property Peer_Address
+    Remove-SSHSession -SSHSession $SshSession | Out-Null
 }
