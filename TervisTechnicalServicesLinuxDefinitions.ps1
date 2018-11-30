@@ -8,6 +8,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "2-17"
     Services = "EBSODBEE"
     SID = "PRD"
+    Environment = "Production"
+    ServiceUserAccount = "oracle"
 },
 [PSCustomObject][Ordered]@{
     Computername = "ebsapps-prd"
@@ -19,6 +21,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "2-17"
     Services = "EBSIAS","RPIAS"
     SID = "PRD","PRDRP"
+    Environment = "Production"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "p-odbee02"
@@ -30,6 +34,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "2-17"
     Services = "OBIAODBEE","OBIEEODBEE"
     SID = "PRDBI","PRDDWH"
+    Environment = "Production"
+    ServiceUserAccount = "oracle"
 },
 [PSCustomObject][Ordered]@{
     Computername = "p-weblogic01"
@@ -40,7 +46,9 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     CPUCountLimit = "32"
     PinnedCPUs = "2-17"
     Services = "SOA Weblogic","OBIEE Weblogic","Disco Weblogic"
-    SID = "PRDSOS","PRDBI","PRDDisco"
+    SID = "PRDSOA","PRDBI","PRDDisco"
+    Environment = "Production"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "p-weblogic02"
@@ -52,6 +60,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "20-27"
     Services = "RP Weblogic"
     SID = "PRDRP"
+    Environment = "Production"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "p-infadac"
@@ -63,6 +73,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "2-13"
     Services = "Infadac"
     SID = ""
+    Environment = "Production"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "zet-odbee01"
@@ -74,6 +86,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "20-37"
     Services = "EBSODBEE"
     SID = "SBX"
+    Environment = "Zeta"
+    ServiceUserAccount = "oracle"
 },
 [PSCustomObject][Ordered]@{
     Computername = "zet-ias01"
@@ -85,6 +99,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "2-17"
     Services = "EBSIAS"
     SID = "SBX"
+    Environment = "Zeta"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "dlt-ias01"
@@ -95,7 +111,9 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     CPUCountLimit = "16"
     PinnedCPUs = "2-17"
     Services = "EBSIAS","RPIAS"
-    SID = "DEVIAS","DEVRP"
+    SID = "DEV","DEVRP"
+    Environment = "Delta"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "dlt-odbee01"
@@ -106,7 +124,9 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     CPUCountLimit = "16"
     PinnedCPUs = "20-35"
     Services = "EBSODBEE","SOAODBEE","RPODBEE","OBIAODBEE"
-    SID = "DEVBI","DEVSOA","DEVRP","DEVDWH"
+    SID = "DEV","DEVBI","DEVSOA","DEVRP","DEVDWH"
+    Environment = "Delta"
+    ServiceUserAccount = "oracle"
 },
 [PSCustomObject][Ordered]@{
     Computername = "dlt-odbee02"
@@ -117,7 +137,9 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     CPUCountLimit = "8"
     PinnedCPUs = "20-27"
     Services = "EBSODBEE","SOAODBEE","RPODBEE","OBIAODBEE"
-    SID = "DEV","DEVSOA","DEVRP","DEVBI"
+    SID = "DEVSOA12"
+    Environment = "Delta"
+    ServiceUserAccount = "oracle"
 },
 [PSCustomObject][Ordered]@{
     Computername = "dlt-weblogic01"
@@ -129,6 +151,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "2-17"
     Services = "OBIEE Weblogic","SOA Weblogic","RP Weblogic","Disco Weblogic"
     SID = "DEVBI","DEVSOA","DEVRP","DEVDISCO"
+    Environment = "Delta"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "dlt-weblogic02"
@@ -139,7 +163,9 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     CPUCountLimit = "16"
     PinnedCPUs = "2-17"
     Services = "SOA Weblogic"
-    SID = "DEVSOA2"
+    SID = "DEVSOA12"
+    Environment = "Delta"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "dlt-infadac"
@@ -150,7 +176,9 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     CPUCountLimit = "16"
     PinnedCPUs = "2-13"
     Services = "Infadac"
-    SID = ""
+    SID = "DEVINFADAC"
+    Environment = "Delta"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "eps-ias01"
@@ -162,6 +190,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "2-17"
     Services = "EBSIAS","RPIAS"
     SID = "SIT","SITRP"
+    Environment = "Epsilon"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "eps-odbee01"
@@ -171,8 +201,10 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     CPUCount = "16"
     CPUCountLimit = "32"
     PinnedCPUs = "2-17"
-    Services = "EBSODBEE","SOA ODBEE","RP ODBEE","OBIA ODBEE"
-    SID = "SIT","SITBI","SITDWH","SITRP"
+    Services = "EBSODBEE","SOAODBEE","RPODBEE","OBIAODBEE"
+    SID = "SIT","SITBI","SITDWH","SITRP","SITSOA"
+    Environment = "Epsilon"
+    ServiceUserAccount = "oracle"
 },
 [PSCustomObject][Ordered]@{
     Computername = "eps-weblogic01"
@@ -184,6 +216,8 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     PinnedCPUs = "2-17"
     Services = "OBIEE Weblogic","SOA Weblogic","RP Weblogic","Disco Weblogic"
     SID = "SITBI","SITSOA","SITRP","SITDISCO"
+    Environment = "Epsilon"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "eps-infadac"
@@ -194,7 +228,9 @@ $OracleServerDefinitions = [PSCustomObject][Ordered]@{
     CPUCountLimit = "16"
     PinnedCPUs = "2-17"
     Services = "Infadac"
-    SID = ""
+    SID = "SITINFADAC"
+    Environment = "Epsilon"
+    ServiceUserAccount = "applmgr"
 },
 [PSCustomObject][Ordered]@{
     Computername = "ovmtest"
@@ -228,33 +264,80 @@ $OracleClusterNodes = [PSCustomObject][Ordered]@{
 }
 
 $TervisOracleServiceBinPaths = [PSCustomObject][Ordered]@{
-    SID = "DEV"
+    SID = "DEVINFADAC"
     Paths = [PSCustomObject][Ordered]@{
-       SOAWLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
-       SOAUIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/bin"
-       BIWLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
-       BIUIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/bin"
-       DiscoWLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
-       DiscoUIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/bin"
-       RPWLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
-       RPUIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
        InfaDACWLBinPath = "/u01/app/applmgr/BI_INSTALL/HOME_DAC_DEV/dac"
     }
 },
 [PSCustomObject][Ordered]@{
-    SID = "SIT"
+    SID = "DEVRP"
     Paths = [PSCustomObject][Ordered]@{
-        SOAWLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
-        SOAUIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/SITSOA_Domain/bin"
-        BIWLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
-        BIUIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomain/bin"
-        DiscoWLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
-        DiscoUIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/SITDisco_Domain/bin"
         RPWLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
         RPUIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+    }
+},
+[PSCustomObject][Ordered]@{
+    SID = "DEVSOA"
+    Paths = [PSCustomObject][Ordered]@{
+        SOAWLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
+        SOAUIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/bin"
+     }
+},
+[PSCustomObject][Ordered]@{
+    SID = "DEVBI"
+    Paths = [PSCustomObject][Ordered]@{
+        BIWLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
+        BIUIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/bin"
+      }
+},
+[PSCustomObject][Ordered]@{
+    SID = "DEVSOA12"
+    Paths = [PSCustomObject][Ordered]@{
+        SOAWLServerBinPath = "/soabin/app/applmgr/Middleware_SOA12/wlserver/server/bin"
+        SOAUIDomainBinPath = "/soabin/app/applmgr/Middleware_SOA12/user_projects/domains/DEV_SOA12domain/bin"
+     }
+},
+[PSCustomObject][Ordered]@{
+    SID = "DEVDISCO"
+    Paths = [PSCustomObject][Ordered]@{
+        DiscoWLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
+        DiscoUIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/bin"
+      }
+},
+[PSCustomObject][Ordered]@{
+    SID = "SITINFADAC"
+    Paths = [PSCustomObject][Ordered]@{
         InfaDACWLBinPath = "/u01/app/applmgr/BI_INSTALL/HOME_DAC/dac"
     }
 },
+[PSCustomObject][Ordered]@{
+    SID = "SITDISCO"
+    Paths = [PSCustomObject][Ordered]@{
+        DiscoWLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
+        DiscoUIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/SITDisco_Domain/bin"
+      }
+},
+[PSCustomObject][Ordered]@{
+    SID = "SITSOA"
+    Paths = [PSCustomObject][Ordered]@{
+        SOAWLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
+        SOAUIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/SITSOA_Domain/bin"
+      }
+},
+[PSCustomObject][Ordered]@{
+    SID = "SITBI"
+    Paths = [PSCustomObject][Ordered]@{
+        BIWLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
+        BIUIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomain/bin"
+      }
+},
+[PSCustomObject][Ordered]@{
+    SID = "SITRP"
+    Paths = [PSCustomObject][Ordered]@{
+        RPWLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
+        RPUIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+      }
+}
 [PSCustomObject][Ordered]@{
     SID = "PRD"
     Paths = [PSCustomObject][Ordered]@{
@@ -271,3 +354,4 @@ $TervisOracleServiceBinPaths = [PSCustomObject][Ordered]@{
 }
 
 
+#/soabin/app/applmgr/Middleware_SOA12/user_projects/domains/DEV_SOA12domain/bin/

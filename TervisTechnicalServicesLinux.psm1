@@ -1478,13 +1478,17 @@ function Invoke-ReplicateLocalWindowsPathToLinux {
 Function Get-OracleServerDefinition{
     Param(
         [parameter(mandatory, ParameterSetName="Computername")]$Computername,
-        [parameter(Mandatory, ParameterSetName="SID")]$SID
+        [parameter(Mandatory, ParameterSetName="SID")]$SID,
+        [parameter(Mandatory, ParameterSetName="Environment")]$Environment
     )
     If($Computername){
         $OracleServerDefinitions |  Where-Object {-not $Computername -or $_.Computername -In $Computername}
     }
-    If($SID){
+    elseif($SID){
         $OracleServerDefinitions |  Where-Object SID -EQ $SID
+    }
+    elseif($Environment){
+        $OracleServerDefinitions |  Where-Object Environment -EQ $Environment
     }
 }
 
@@ -1670,12 +1674,17 @@ function Stop-OracleDatabaseListener{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $ListenerProcessCount = (Invoke-SSHCommand -SSHSession $SSHSession -Command $GetTNSListenerProcessCmd).Output
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $ExpectString = "SSHShellStreamPrompt"
+    $ListenerProcessCountCommand = "ps -fu `${LOGNAME} | grep -Ei '\<tnslsnr $($SID)|$($SID)\>' | grep -v grep | wc -l"
+    $ListenerProcessCount = (Invoke-SSHCommand -SSHSession $SSHSession -Command $ListenerProcessCountCommand).output
     if ($ListenerProcessCount -ge 1){
         $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
         $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
         $SSHShellStream.WriteLine($SID.ToLower())
+        $SSHShellStream.Read()
         $SSHShellStream.WriteLine("lsnrctl stop $SID")
+        $SSHShellStream.Expect($ExpectString,$TimeSpan)
     }
 }
 
@@ -1685,10 +1694,14 @@ function Start-OracleDatabaseListener{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-        $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
-        $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-        $SSHShellStream.WriteLine($SID.ToLower())
-        $SSHShellStream.WriteLine("lsnrctl start $SID")
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $ExpectString = "SSHShellStreamPrompt"
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("lsnrctl start $SID")
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
 }
 
 function Stop-OracleDatabase{
@@ -1704,19 +1717,17 @@ exit;
 EOF
 "@
     $TerminateDBConnectionsCommand = "ps -u `${LOGNAME} -o pid,args | grep 'oracle$($SID) (LOCAL=NO)' | grep -v grep | sort -r -n | awk '{print `$1}' | xargs kill -9"
-
-    if ($ListenerProcessCount -ge 1){
-        $ExpectString = "SSHShellStreamPrompt"
-        $TimeSpan = New-TimeSpan -Minutes 5
-        Invoke-SSHCommand -SSHSession $SSHSession -Command $TerminateDBConnectionsCommand
-        $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
-        $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-        $SSHShellStream.WriteLine($SID.ToLower())
-        $SSHShellStream.WriteLine($DatabaseShutdownCommand)
-        if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
-            Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
-        }    
-    }
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    Invoke-SSHCommand -SSHSession $SSHSession -Command $TerminateDBConnectionsCommand
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine($DatabaseShutdownCommand)
+    $SSHShellStream.Read()
+    if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
+        Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
+    }    
 }
 
 function Start-OracleDatabase{
@@ -1737,6 +1748,7 @@ EOF
         $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
         $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
         $SSHShellStream.WriteLine($SID.ToLower())
+        $SSHShellStream.Read()
         $SSHShellStream.WriteLine($DatabaseStartupCommand)
         if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
             Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
@@ -1764,13 +1776,13 @@ function Start-OracleIAS{
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
-    $IASStartupCommand = "adstrtall $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
+    $IASStartupCommand = "adstrtal.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
     $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l"
     $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-    
+    $SSHShellStream.Read()
     if($IASProcessCount -le 1){
         $SSHShellStream.WriteLine($IASStartupCommand)
     }
@@ -1788,14 +1800,14 @@ function Stop-OracleIAS{
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
-    $IASShutdownCommand = "adstpall $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
+    $IASShutdownCommand = "adstpall.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
     $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l"
     $IASProcessCleanupKillCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | awk -v FS='/' '{print `$3}' | xargs kill -9"
     $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-    
+    $SSHShellStream.Read()
     if($IASProcessCount -ge 1){
         $SSHShellStream.WriteLine($IASShutdownCommand)
     }
@@ -1818,10 +1830,13 @@ function Stop-OracleInfadac{
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
-    $SSHShellStream.WriteLine($SID.ToLower())
+#    $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
     $SSHShellStream.WriteLine("cd $($DACWLBinPath)")
-    $SSHShellStream.WriteLine("$($DACWLBinPath)/stopWeblogic.sh")
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("$($DACWLBinPath)/stopserver.sh")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
 }
 
 function Stop-OracleRPWeblogic{
@@ -1830,18 +1845,29 @@ param(
     [parameter(mandatory)]$SID,
     [parameter(mandatory)]$SSHSession
 )
-$ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-$WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
-$UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
-$ExpectString = "SSHShellStreamPrompt"
-$TimeSpan = New-TimeSpan -Minutes 5
-$SSHShellStream = New-SSHShellStream -SSHSession $SshSession
-$SSHShellStream.WriteLine($SID.ToLower())
-$SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-$SSHShellStream.WriteLine("cd $($WLServerBinPath)")
-$SSHShellStream.WriteLine("$($WLServerBinPath)/stopWeblogic.sh")
-$SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
-$SSHShellStream.WriteLine("$($UIDomainBinPath)/stopWeblogic.sh")
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+#    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
+#    $SSHShellStream.Read()
+#    $SSHShellStream.WriteLine("$($WLServerBinPath)/stopWeblogic.sh")
+#    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("./stopWebLogic.sh")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("pkill -9 -f Middleware_RP")
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+
+
+
 }
 
 function Stop-OracleDiscoverer{
@@ -1858,11 +1884,22 @@ function Stop-OracleDiscoverer{
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("opmnctl stopall")
-    $SSHShellStream.WriteLine("$($UIDomainBinPath)/stopWeblogic.sh")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("./stopWebLogic.sh")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("pkill -9 -f Middleware_DISCO")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
 }
 
-function Stop-OracleSAOWeblogic{
+function Stop-OracleSOAWeblogic{
     param(
         [parameter(mandatory)]$Computername,
         [parameter(mandatory)]$SID,
@@ -1876,7 +1913,14 @@ function Stop-OracleSAOWeblogic{
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
-    $SSHShellStream.WriteLine("$($UIDomainBinPath)/stopWeblogic.sh")
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("./stopWebLogic.sh")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.WriteLine("pkill -9 -f Middleware_SOA")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
 }
 
 function Stop-OracleBIWeblogic{
@@ -1893,8 +1937,19 @@ function Stop-OracleBIWeblogic{
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("opmnctl stopall")
-    $SSHShellStream.WriteLine("$($UIDomainBinPath)/stopWeblogic.sh")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("./stopWebLogic.sh")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("pkill -9 -f Middleware_BI")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
 }
 
 function Start-OracleInfadac{
@@ -1911,7 +1966,11 @@ function Start-OracleInfadac{
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
     $SSHShellStream.WriteLine("cd $($DACWLBinPath)")
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("nohup $($DACWLBinPath)/startserver.sh")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
 }
 
 function Start-OracleRPWeblogic{
@@ -1920,6 +1979,18 @@ param(
     [parameter(mandatory)]$SID,
     [parameter(mandatory)]$SSHSession
 )
+    $startNodeManagerTailCommand = @"
+tail -f nohup.out | while read LOGLINE
+do
+[[ "`${LOGLINE}" == *"INFO: Secure socket listener started on port"* ]] && pkill -P `$`$ tail
+done
+"@
+    $startWeblogicTailCommand = @"
+tail -f nohup.out | while read LOGLINE
+do
+[[ "`${LOGLINE}" == *"Server started in RUNNING mode"* ]] && pkill -P `$`$ tail
+done
+"@
 $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
 $WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
 $UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
@@ -1930,9 +2001,24 @@ $SSHShellStream.WriteLine($SID.ToLower())
 $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
 $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
 $SSHShellStream.WriteLine("rm -f nohup.out")
-$SSHShellStream.WriteLine("$($WLServerBinPath)/startNodeManager.sh &")
+$SSHShellStream.Read()
+$SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
+$SSHShellStream.WriteLine($startNodeManagerTailCommand)
+$SSHShellStream.Expect($ExpectString,$TimeSpan)
+$SSHShellStream.Read()
+
 $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
-$SSHShellStream.WriteLine("nohup $($UIDomainBinPath)/startWeblogic.sh &")
+$SSHShellStream.WriteLine("rm -f nohup.out")
+$SSHShellStream.Read()
+$SSHShellStream.WriteLine("nohup $($UIDomainBinPath)/startWebLogic.sh &")
+$SSHShellStream.WriteLine($startWeblogicTailCommand)
+$SSHShellStream.Expect($ExpectString,$TimeSpan)
+$SSHShellStream.Read()
+
+$SSHShellStream.WriteLine("./startManagedWebLogic.sh oim_server1 http://localhost:7001")
+$SSHShellStream.Expect($ExpectString,$TimeSpan)
+$SSHShellStream.Read()
+
 }
 
 function Start-OracleDiscoverer{
@@ -1947,9 +2033,15 @@ function Start-OracleDiscoverer{
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $startNodeManagerTailCommand = @"
-tail -f test  | while read LOGLINE
+tail -f nohup.out  | while read LOGLINE
 do
-[[ "${LOGLINE}" == *"Secure socket listener started on port* ]] && pkill -P $$ tail
+[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+done
+"@
+$startWeblogicTailCommand = @"
+tail -f nohup.out | while read LOGLINE
+do
+[[ "`${LOGLINE}" == *"Server started in RUNNING mode"* ]] && pkill -P `$`$ tail
 done
 "@
     
@@ -1960,21 +2052,47 @@ done
     $SSHShellStream.WriteLine("rm -f nohup.out")
     $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
     $SSHShellStream.WriteLine($startNodeManagerTailCommand)
+    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
-
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("opmnctl startall")
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.WriteLine("rm -f nohup.out")
-    $SSHShellStream.WriteLine("nohup startWeblogic.sh &")
+    $SSHShellStream.WriteLine("nohup startWebLogic.sh &")
+    $SSHShellStream.WriteLine($startWeblogicTailCommand)
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+
+    $SSHShellStream.WriteLine("./startManagedWebLogic.sh oim_server1 http://localhost:7001")
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    
 ####Start Managed Server###
 }
 
-function Start-OracleSAOWeblogic{
+function Start-OracleSOAWeblogic{
     param(
         [parameter(mandatory)]$Computername,
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
+    $startNodeManagerTailCommand = @"
+tail -f nohup.out  | while read LOGLINE
+do
+[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+done
+"@
+$startWeblogicTailCommand = @"
+tail -f nohup.out | while read LOGLINE
+do
+[[ "`${LOGLINE}" == *"Server started in RUNNING mode"* ]] && pkill -P `$`$ tail
+done
+"@
+    
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
     $WLServerBinPath = $ServiceBinPaths.SOAWLServerBinPath
     $UIDomainBinPath = $ServiceBinPaths.SOAUIDomainBinPath
@@ -1986,9 +2104,20 @@ function Start-OracleSAOWeblogic{
     $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
     $SSHShellStream.WriteLine("rm -f nohup.out")
     $SSHShellStream.WriteLine("nohup ./startNodeManager.sh &")
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine($startNodeManagerTailCommand)
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.WriteLine("rm -f nohup.out")
-    $SSHShellStream.WriteLine("nohup startWeblogic.sh &")
+    $SSHShellStream.WriteLine("nohup startWebLogic.sh &")
+    $SSHShellStream.WriteLine($startWeblogicTailCommand)
+    Start-Sleep 1
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+
+    $SSHShellStream.WriteLine("./startManagedWebLogic.sh oim_server1 http://localhost:7001")
 ###Start SOA Managed Servers###
 }
 
@@ -1998,6 +2127,18 @@ function Start-OracleBIWeblogic{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
+    $startNodeManagerTailCommand = @"
+tail -f nohup.out  | while read LOGLINE
+do
+[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+done
+"@
+    $startWeblogicTailCommand = @"
+tail -f nohup.out | while read LOGLINE
+do
+[[ "`${LOGLINE}" == *"Server started in RUNNING mode"* ]] && pkill -P `$`$ tail
+done
+"@
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
     $WLServerBinPath = $ServiceBinPaths.BIWLServerBinPath
     $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
@@ -2011,10 +2152,19 @@ function Start-OracleBIWeblogic{
     $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
     $SSHShellStream.WriteLine($startNodeManagerTailCommand)
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.WriteLine("opmnctl startall")
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("rm -f nohup.out")
-    $SSHShellStream.WriteLine("nohup startWeblogic.sh &")
+    $SSHShellStream.WriteLine("nohup startWebLogic.sh &")
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+
+    $SSHShellStream.WriteLine("./startManagedWebLogic.sh oim_server1 http://localhost:7001")
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
 ###Start BI Managed Server###
 }
 
@@ -2026,93 +2176,179 @@ Function Get-TervisOracleServiceBinPaths{
 }
 
 function Stop-TervisOracleDEVEnvironment{
+    $ComputerList = Get-OracleServerDefinition -Environment Delta
+    $Credential = Get-PasswordstatePassword -ID 4693 -AsCredential
+    $ApplmgrUserCredential = Get-PasswordstatePassword -ID 4767 -AsCredential
+    $OracleUserCredential = Get-PasswordstatePassword -ID 5571 -AsCredential
+#    New-SSHSession -ComputerName $ComputerList.Computername -AcceptKey -Credential $Credential
+    $SystemsUsingOracleUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "oracle"
+    $SystemsUsingApplmgrUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "applmgr"
+    New-SSHSession -ComputerName $SystemsUsingOracleUserCredential.Computername -AcceptKey -Credential $OracleUserCredential
+    New-SSHSession -ComputerName $SystemsUsingApplmgrUserCredential.Computername -AcceptKey -Credential $ApplmgrUserCredential
+    $Infadac = Get-OracleServerDefinition -SID DEVINFADAC | Where-Object Services -Match "InfaDAC"
     $RPWeblogic = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RP Weblogic"
     $DiscoWeblogic = Get-OracleServerDefinition -SID DEVDisco | Where-Object Services -Match "Disco Weblogic"
     $BIWeblogic = Get-OracleServerDefinition -SID DEVBI | Where-Object Services -Match "OBIEE Weblogic"
     $SOAWeblogic = Get-OracleServerDefinition -SID DEVSOA | Where-Object Services -Match "SOA Weblogic"
+    $SOA12Weblogic = Get-OracleServerDefinition -SID DEVSOA12 | Where-Object Services -Match "SOA Weblogic"
     $RPIAS = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RPIAS"
     $EBSIAS = Get-OracleServerDefinition -SID DEV | Where-Object Services -Match "EBSIAS"
     $EBSODBEE = Get-OracleServerDefinition -SID DEV | Where-Object Services -Match "EBSODBEE"
     $SOAODBEE = Get-OracleServerDefinition -SID DEVSOA | Where-Object Services -Match "SOAODBEE"
+    $SOA12ODBEE = Get-OracleServerDefinition -SID DEVSOA12 | Where-Object Services -Match "SOAODBEE"
     $OBIAODBEE = Get-OracleServerDefinition -SID DEVBI | Where-Object Services -Match "OBIAODBEE"
     $OBIEEODBEE = Get-OracleServerDefinition -SID DEVDWH | Where-Object Services -Match "OBIAODBEE"
     $RPODBEE = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RPODBEE"
-    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername
-    Stop-OracleDiscoverer -Computername $DiscoWeblogic.Computername
-    Stop-OracleBIWeblogic -Computername $BIWeblogic.Computername
-    Stop-OracleSAOWeblogic -Computername $SOAWeblogic.Computername
-    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername
-    Stop-OracleIAS -Computername $RPIAS.Computername -SID DEVRP
-    Stop-OracleIAS -Computername $EBSIAS.ComputerName -SID DEV
-    Stop-OracleDatabase -Computername $OBIEEODBEE.$Computername -SID DEVDWH
-    Stop-OracleDatabase -Computername $OBIAODBEE.$Computername -SID DEVBI
-    Stop-OracleDatabase -Computername $RPODBEE.$Computername -SID DEVRP
-    Stop-OracleDatabase -Computername $SOAODBEE.$Computername -SID DEVSOA
-    Stop-OracleDatabase -Computername $EBSODBEE.$Computername -SID DEV
+    Stop-OracleInfadac -Computername $Infadac.Computername -SID DEVINFADAC -SSHSession (get-sshsession -ComputerName $Infadac.Computername)
+    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername -SID DEVRP -SSHSession (get-sshsession -ComputerName $RPWeblogic.Computername)
+    Stop-OracleDiscoverer -Computername $DiscoWeblogic.Computername -SID DEVDISCO -SSHSession (get-sshsession -ComputerName $DiscoWeblogic.Computername)
+    Stop-OracleBIWeblogic -Computername $BIWeblogic.Computername -SID DEVBI -SSHSession (get-sshsession -ComputerName $BIWeblogic.Computername)
+    Stop-OracleSOAWeblogic -Computername $SOAWeblogic.Computername -SID DEVSOA -SSHSession (get-sshsession -ComputerName $SOAWeblogic.Computername)
+    Stop-OracleSOAWeblogic -Computername $SOA12Weblogic.Computername -SID DEVSOA12 -SSHSession (get-sshsession -ComputerName $SOA12Weblogic.Computername)
+    Stop-OracleIAS -Computername $RPIAS.Computername -SID DEVRP -SSHSession (get-sshsession -ComputerName $RPIAS.Computername)
+    Stop-OracleIAS -Computername $EBSIAS.ComputerName -SID DEV -SSHSession (get-sshsession -ComputerName $EBSIAS.Computername)
+    Stop-OracleDatabase -Computername $OBIEEODBEE.Computername -SID DEVDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Stop-OracleDatabase -Computername $OBIAODBEE.Computername -SID DEVBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Stop-OracleDatabase -Computername $RPODBEE.Computername -SID DEVRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Stop-OracleDatabase -Computername $SOAODBEE.Computername -SID DEVSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Stop-OracleDatabase -Computername $SOA12ODBEE.Computername -SID DEVSOA12 -SSHSession (get-sshsession -ComputerName $SOA12ODBEE.Computername)
+    Stop-OracleDatabase -Computername $EBSODBEE.Computername -SID DEV -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $OBIEEODBEE.Computername -SID DEVDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $OBIAODBEE.Computername -SID DEVBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $RPODBEE.Computername -SID DEVRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $SOAODBEE.Computername -SID DEVSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $SOA12ODBEE.Computername -SID DEVSOA12 -SSHSession (get-sshsession -ComputerName $SOA12ODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $EBSODBEE.Computername -SID DEV -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+    Get-SSHSession | Remove-SSHSession
 }
 
 function Stop-TervisOracleSITEnvironment{
+    $ComputerList = Get-OracleServerDefinition -Environment Epsilon
+    $Credential = Get-PasswordstatePassword -ID 4693 -AsCredential
+    $ApplmgrUserCredential = Get-PasswordstatePassword -ID 4767 -AsCredential
+    $OracleUserCredential = Get-PasswordstatePassword -ID 5571 -AsCredential
+    $SystemsUsingOracleUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "oracle"
+    $SystemsUsingApplmgrUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "applmgr"
+    New-SSHSession -ComputerName $SystemsUsingOracleUserCredential.Computername -AcceptKey -Credential $OracleUserCredential
+    New-SSHSession -ComputerName $SystemsUsingApplmgrUserCredential.Computername -AcceptKey -Credential $ApplmgrUserCredential
+    $Infadac = Get-OracleServerDefinition -SID SITINFADAC | Where-Object Services -Match "InfaDAC"
     $RPWeblogic = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RP Weblogic"
     $DiscoWeblogic = Get-OracleServerDefinition -SID SITDisco | Where-Object Services -Match "Disco Weblogic"
     $BIWeblogic = Get-OracleServerDefinition -SID SITBI | Where-Object Services -Match "OBIEE Weblogic"
     $SOAWeblogic = Get-OracleServerDefinition -SID SITSOA | Where-Object Services -Match "SOA Weblogic"
     $RPIAS = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RPIAS"
     $EBSIAS = Get-OracleServerDefinition -SID SIT | Where-Object Services -Match "EBSIAS"
-    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername
-    Stop-OracleDiscoverer -Computername $DiscoWeblogic.Computername
-    Stop-OracleBIWeblogic -Computername $BIWeblogic.Computername
-    Stop-OracleSAOWeblogic -Computername $SOAWeblogic.Computername
-    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername
-    Stop-OracleIAS -Computername $RPIAS.Computername -SID SITRP
-    Stop-OracleIAS -Computername $EBSIAS.ComputerName -SID SIT
-    Stop-OracleDatabase -Computername $OBIEEODBEE.$Computername -SID SITDWH
-    Stop-OracleDatabase -Computername $OBIAODBEE.$Computername -SID SITBI
-    Stop-OracleDatabase -Computername $RPODBEE.$Computername -SID SITRP
-    Stop-OracleDatabase -Computername $SOAODBEE.$Computername -SID SITSOA
-    Stop-OracleDatabase -Computername $EBSODBEE.$Computername -SID SIT
+    $EBSODBEE = Get-OracleServerDefinition -SID SIT | Where-Object Services -Match "EBSODBEE"
+    $SOAODBEE = Get-OracleServerDefinition -SID SITSOA | Where-Object Services -Match "SOAODBEE"
+    $OBIAODBEE = Get-OracleServerDefinition -SID SITBI | Where-Object Services -Match "OBIAODBEE"
+    $OBIEEODBEE = Get-OracleServerDefinition -SID SITDWH | Where-Object Services -Match "OBIAODBEE"
+    $RPODBEE = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RPODBEE"
+    Stop-OracleInfadac -Computername $Infadac.Computername -SID SITINFADAC -SSHSession (get-sshsession -ComputerName $Infadac.Computername)
+    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPWeblogic.Computername)
+    Stop-OracleDiscoverer -Computername $DiscoWeblogic.Computername -SID SITDISCO -SSHSession (get-sshsession -ComputerName $DiscoWeblogic.Computername)
+    Stop-OracleBIWeblogic -Computername $BIWeblogic.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $BIWeblogic.Computername)
+    Stop-OracleSOAWeblogic -Computername $SOAWeblogic.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAWeblogic.Computername)
+#    Stop-OracleRPWeblogic -Computername $RPWeblogic.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPWeblogic.Computername)
+    Stop-OracleIAS -Computername $RPIAS.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPIAS.Computername)
+    Stop-OracleIAS -Computername $EBSIAS.ComputerName -SID SIT -SSHSession (get-sshsession -ComputerName $EBSIAS.Computername)
+    Stop-OracleDatabase -Computername $OBIEEODBEE.Computername -SID SITDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Stop-OracleDatabase -Computername $OBIAODBEE.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Stop-OracleDatabase -Computername $RPODBEE.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Stop-OracleDatabase -Computername $SOAODBEE.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Stop-OracleDatabase -Computername $EBSODBEE.Computername -SID SIT -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $OBIEEODBEE.Computername -SID SITDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $OBIAODBEE.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $RPODBEE.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $SOAODBEE.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Stop-OracleDatabaseListener -Computername $EBSODBEE.Computername -SID SIT -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+    Get-SSHSession | Remove-SSHSession
 }
 
 function Start-TervisOracleDEVEnvironment{
+    $ComputerList = Get-OracleServerDefinition -Environment Delta
+    $Credential = Get-PasswordstatePassword -ID 4693 -AsCredential
+    $ApplmgrUserCredential = Get-PasswordstatePassword -ID 4767 -AsCredential
+    $OracleUserCredential = Get-PasswordstatePassword -ID 5571 -AsCredential
+#    New-SSHSession -ComputerName $ComputerList.Computername -AcceptKey -Credential $Credential
+    $SystemsUsingOracleUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "oracle"
+    $SystemsUsingApplmgrUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "applmgr"
+    New-SSHSession -ComputerName $SystemsUsingOracleUserCredential.Computername -AcceptKey -Credential $OracleUserCredential
+    New-SSHSession -ComputerName $SystemsUsingApplmgrUserCredential.Computername -AcceptKey -Credential $ApplmgrUserCredential
     $RPWeblogic = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RP Weblogic"
     $DiscoWeblogic = Get-OracleServerDefinition -SID DEVDisco | Where-Object Services -Match "Disco Weblogic"
     $BIWeblogic = Get-OracleServerDefinition -SID DEVBI | Where-Object Services -Match "OBIEE Weblogic"
     $SOAWeblogic = Get-OracleServerDefinition -SID DEVSOA | Where-Object Services -Match "SOA Weblogic"
+    $SOA12Weblogic = Get-OracleServerDefinition -SID DEVSOA12 | Where-Object Services -Match "SOA Weblogic"
     $RPIAS = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RPIAS"
     $EBSIAS = Get-OracleServerDefinition -SID DEV | Where-Object Services -Match "EBSIAS"
-    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername
-    Start-OracleDiscoverer -Computername $DiscoWeblogic.Computername
-    Start-OracleBIWeblogic -Computername $BIWeblogic.Computername
-    Start-OracleSAOWeblogic -Computername $SOAWeblogic.Computername
-    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername
-    Start-OracleIAS -Computername $RPIAS.Computername -SID DEVRP
-    Start-OracleIAS -Computername $EBSIAS.ComputerName -SID DEV
-    Start-OracleDatabase -Computername $OBIEEODBEE.$Computername -SID DEVDWH
-    Start-OracleDatabase -Computername $OBIAODBEE.$Computername -SID DEVBI
-    Start-OracleDatabase -Computername $RPODBEE.$Computername -SID DEVRP
-    Start-OracleDatabase -Computername $SOAODBEE.$Computername -SID DEVSOA
-    Start-OracleDatabase -Computername $EBSODBEE.$Computername -SID DEV
+    $EBSODBEE = Get-OracleServerDefinition -SID DEV | Where-Object Services -Match "EBSODBEE"
+    $SOAODBEE = Get-OracleServerDefinition -SID DEVSOA | Where-Object Services -Match "SOAODBEE"
+    $SOA12ODBEE = Get-OracleServerDefinition -SID DEVSOA12 | Where-Object Services -Match "SOAODBEE"
+    $OBIAODBEE = Get-OracleServerDefinition -SID DEVBI | Where-Object Services -Match "OBIAODBEE"
+    $OBIEEODBEE = Get-OracleServerDefinition -SID DEVDWH | Where-Object Services -Match "OBIAODBEE"
+    $RPODBEE = Get-OracleServerDefinition -SID DEVRP | Where-Object Services -Match "RPODBEE"
+    Start-OracleDatabase -Computername $EBSODBEE.Computername -SID DEV -SSHSession (get-sshsession -ComputerName $RPWeblogic.Computername)
+    Start-OracleDatabase -Computername $SOAODBEE.Computername -SID DEVSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Start-OracleDatabase -Computername $SOA12ODBEE.Computername -SID DEVSOA12 -SSHSession (get-sshsession -ComputerName $SOA12Weblogic.Computername)
+    Start-OracleDatabase -Computername $RPODBEE.Computername -SID DEVRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Start-OracleDatabase -Computername $OBIAODBEE.Computername -SID DEVBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Start-OracleDatabase -Computername $OBIEEODBEE.Computername -SID DEVDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $OBIEEODBEE.Computername -SID DEVDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $OBIAODBEE.Computername -SID DEVBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $RPODBEE.Computername -SID DEVRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $SOAODBEE.Computername -SID DEVSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $EBSODBEE.Computername -SID DEV -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+
+    Start-OracleIAS -Computername $EBSIAS.ComputerName -SID DEV -SSHSession (get-sshsession -ComputerName $EBSIAS.Computername)
+    Start-OracleIAS -Computername $RPIAS.Computername -SID DEVRP -SSHSession (get-sshsession -ComputerName $RPIAS.Computername)
+    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername -SID DEVRP -SSHSession (get-sshsession -ComputerName $RPWeblogic.Computername)
+    Start-OracleSOAWeblogic -Computername $SOAWeblogic.Computername -SID DEVSOA -SSHSession (get-sshsession -ComputerName $SOAWeblogic.Computername)
+    Start-OracleSOAWeblogic -Computername $SOA12Weblogic.Computername -SID DEVSOA12 -SSHSession (get-sshsession -ComputerName $SOA12Weblogic.Computername)
+    Start-OracleBIWeblogic -Computername $BIWeblogic.Computername -SID DEVBI -SSHSession (get-sshsession -ComputerName $BIWeblogic.Computername)
+    Start-OracleDiscoverer -Computername $DiscoWeblogic.Computername -SID DEVDISCO -SSHSession (get-sshsession -ComputerName $DiscoWeblogic.Computername)
+    Get-SSHSession | Remove-SSHSession
 }
 
 function Start-TervisOracleSITEnvironment{
+    $ComputerList = Get-OracleServerDefinition -Environment Epsilon
+    $Credential = Get-PasswordstatePassword -ID 4693 -AsCredential
+    $ApplmgrUserCredential = Get-PasswordstatePassword -ID 4767 -AsCredential
+    $OracleUserCredential = Get-PasswordstatePassword -ID 5571 -AsCredential
+    $SystemsUsingOracleUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "oracle"
+    $SystemsUsingApplmgrUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "applmgr"
+    New-SSHSession -ComputerName $SystemsUsingOracleUserCredential.Computername -AcceptKey -Credential $OracleUserCredential
+    New-SSHSession -ComputerName $SystemsUsingApplmgrUserCredential.Computername -AcceptKey -Credential $ApplmgrUserCredential
     $RPWeblogic = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RP Weblogic"
     $DiscoWeblogic = Get-OracleServerDefinition -SID SITDisco | Where-Object Services -Match "Disco Weblogic"
     $BIWeblogic = Get-OracleServerDefinition -SID SITBI | Where-Object Services -Match "OBIEE Weblogic"
     $SOAWeblogic = Get-OracleServerDefinition -SID SITSOA | Where-Object Services -Match "SOA Weblogic"
     $RPIAS = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RPIAS"
     $EBSIAS = Get-OracleServerDefinition -SID SIT | Where-Object Services -Match "EBSIAS"
-    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername
-    Start-OracleDiscoverer -Computername $DiscoWeblogic.Computername
-    Start-OracleBIWeblogic -Computername $BIWeblogic.Computername
-    Start-OracleSAOWeblogic -Computername $SOAWeblogic.Computername
-    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername
-    Start-OracleIAS -Computername $RPIAS.Computername -SID SITRP
-    Start-OracleIAS -Computername $EBSIAS.ComputerName -SID SIT
-    Start-OracleDatabase -Computername $OBIEEODBEE.$Computername -SID SITDWH
-    Start-OracleDatabase -Computername $OBIAODBEE.$Computername -SID SITBI
-    Start-OracleDatabase -Computername $RPODBEE.$Computername -SID SITRP
-    Start-OracleDatabase -Computername $SOAODBEE.$Computername -SID SITSOA
-    Start-OracleDatabase -Computername $EBSODBEE.$Computername -SID SIT
-}function Get-LinuxSSCommandTCPInformation{
+    $EBSODBEE = Get-OracleServerDefinition -SID SIT | Where-Object Services -Match "EBSODBEE"
+    $SOAODBEE = Get-OracleServerDefinition -SID SITSOA | Where-Object Services -Match "SOAODBEE"
+    $OBIAODBEE = Get-OracleServerDefinition -SID SITBI | Where-Object Services -Match "OBIAODBEE"
+    $OBIEEODBEE = Get-OracleServerDefinition -SID SITDWH | Where-Object Services -Match "OBIAODBEE"
+    $RPODBEE = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RPODBEE"
+    Start-OracleDatabase -Computername $EBSODBEE.Computername -SID SIT -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+    Start-OracleDatabase -Computername $SOAODBEE.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Start-OracleDatabase -Computername $RPODBEE.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Start-OracleDatabase -Computername $OBIAODBEE.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Start-OracleDatabase -Computername $OBIEEODBEE.Computername -SID SITDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $OBIEEODBEE.Computername -SID SITDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $OBIAODBEE.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $RPODBEE.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $SOAODBEE.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $EBSODBEE.Computername -SID SIT -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+    Start-OracleIAS -Computername $EBSIAS.ComputerName -SID SIT -SSHSession (get-sshsession -ComputerName $EBSIAS.Computername)
+    Start-OracleIAS -Computername $RPIAS.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPIAS.Computername)
+    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPWeblogic.Computername)
+    Start-OracleSOAWeblogic -Computername $SOAWeblogic.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAWeblogic.Computername)
+    Start-OracleBIWeblogic -Computername $BIWeblogic.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $BIWeblogic.Computername)
+    Start-OracleDiscoverer -Computername $DiscoWeblogic.Computername -SID SITDISCO -SSHSession (get-sshsession -ComputerName $DiscoWeblogic.Computername)
+    Get-SSHSession | Remove-SSHSession
+}
+
+function Get-LinuxSSCommandTCPInformation{
     param(
         [parameter(Mandatory)]$Hostname,
         [parameter(Mandatory)]$SampleCount,
@@ -2164,3 +2400,4 @@ tcp    ESTAB      0      0      10.172.44.11:48410                10.172.68.5:is
     $FormattedSSOutput | Sort-Object -Property Peer_Address
     Remove-SSHSession -SSHSession $SshSession | Out-Null
 }
+
