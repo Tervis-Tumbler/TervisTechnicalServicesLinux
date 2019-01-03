@@ -1826,15 +1826,15 @@ function Stop-OracleInfadac{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $DACWLBinPath = $ServiceBinPaths.InfaDACWLBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
 #    $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-    $SSHShellStream.WriteLine("cd $($DACWLBinPath)")
+    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
     $SSHShellStream.Read()
-    $SSHShellStream.WriteLine("$($DACWLBinPath)/stopserver.sh")
+    $SSHShellStream.WriteLine("$($WLServerBinPath)/stopserver.sh")
     Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
 }
@@ -1846,8 +1846,8 @@ param(
     [parameter(mandatory)]$SSHSession
 )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
-    $UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1877,7 +1877,7 @@ function Stop-OracleDiscoverer{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $UIDomainBinPath = $ServiceBinPaths.DiscoUIDomainBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1906,7 +1906,7 @@ function Stop-OracleSOAWeblogic{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $UIDomainBinPath = $ServiceBinPaths.SOAUIDomainBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1959,15 +1959,15 @@ function Start-OracleInfadac{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $DACWLBinPath = $ServiceBinPaths.InfaDACWLBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-    $SSHShellStream.WriteLine("cd $($DACWLBinPath)")
+    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
     $SSHShellStream.Read()
-    $SSHShellStream.WriteLine("nohup $($DACWLBinPath)/startserver.sh")
+    $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startserver.sh")
     Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
@@ -1992,8 +1992,8 @@ do
 done
 "@
 $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-$WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
-$UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
+$WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+$UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
 $ExpectString = "SSHShellStreamPrompt"
 $TimeSpan = New-TimeSpan -Minutes 5
 $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -2028,14 +2028,14 @@ function Start-OracleDiscoverer{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $WLServerBinPath = $ServiceBinPaths.DiscoWLServerBinPath
-    $UIDomainBinPath = $ServiceBinPaths.DiscoUIDomainBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $startNodeManagerTailCommand = @"
 tail -f nohup.out  | while read LOGLINE
 do
-[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+[[ "`${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
 done
 "@
 $startWeblogicTailCommand = @"
@@ -2083,7 +2083,7 @@ function Start-OracleSOAWeblogic{
     $startNodeManagerTailCommand = @"
 tail -f nohup.out  | while read LOGLINE
 do
-[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+[[ "`${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
 done
 "@
 $startWeblogicTailCommand = @"
@@ -2094,8 +2094,8 @@ done
 "@
     
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $WLServerBinPath = $ServiceBinPaths.SOAWLServerBinPath
-    $UIDomainBinPath = $ServiceBinPaths.SOAUIDomainBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -2130,7 +2130,7 @@ function Start-OracleBIWeblogic{
     $startNodeManagerTailCommand = @"
 tail -f nohup.out  | while read LOGLINE
 do
-[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+[[ "`${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
 done
 "@
     $startWeblogicTailCommand = @"
@@ -2408,7 +2408,59 @@ function Get-OracleWeblogicManagedServersFromConfig{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $DiscoUIServerConfigPath = $ServiceBinPaths.DiscoUIServerConfigPath
-    $ConfigXML = [xml]((Invoke-SSHCommand -SSHSession $SshSession -Command "cat $DiscoUIServerConfigPath/config.xml").output)
+    $UIServerConfigPath = $ServiceBinPaths.UIServerConfigPath
+    $ConfigXML = [xml]((Invoke-SSHCommand -SSHSession $SshSession -Command "cat $UIServerConfigPath/config.xml").output)
     $ConfigXML.domain.server
+}
+
+function Start-OracleWeblogicManagedServers{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
+    $ManagedServers = Get-OracleWeblogicManagedServersFromConfig @PSBoundParameters
+    $AdminServer = $ManagedServers | Where-Object name -eq AdminServer
+#    $AdminServerPort = $AdminServer."listen-port"
+
+    ForEach($ManagedServer in $ManagedServers){
+        $NohupFileName = "nohup.$($ManagedServer.name)"
+        $SSHCommand = @"
+$($SID.ToLower())
+cd $($UIDomainBinPath)
+rm -f $($NohupFileName)
+nohup ./startManagedWebLogic.sh $($ManagedServer.name) t3://localhost:$($AdminServerPort) > $($NohupFileName) &
+"@ -split "`r`n" -join ";"
+
+    If($ManagedServer.name -ne "AdminServer"){
+            Invoke-SSHCommand -SSHSession $SSHSession -Command $SSHCommand
+        }
+    }
+}
+
+function Stop-OracleWeblogicManagedServers{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
+    $ManagedServers = Get-OracleWeblogicManagedServersFromConfig @PSBoundParameters
+    $AdminServer = $ManagedServers | Where-Object name -eq AdminServer
+#    $AdminServerPort = $AdminServer."listen-port"
+
+    ForEach($ManagedServer in $ManagedServers){
+        $SSHCommand = @"
+$($SID.ToLower())
+cd $($UIDomainBinPath)
+./StopManagedWebLogic.sh $($ManagedServer.name) t3://localhost:$($AdminServerPort)
+"@ -split "`r`n" -join ";"
+
+    If($ManagedServer.name -ne "AdminServer"){
+            Invoke-SSHCommand -SSHSession $SSHSession -Command $SSHCommand
+        }
+    }
 }
