@@ -2401,3 +2401,14 @@ tcp    ESTAB      0      0      10.172.44.11:48410                10.172.68.5:is
     Remove-SSHSession -SSHSession $SshSession | Out-Null
 }
 
+function Get-OracleWeblogicManagedServersFromConfig{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $DiscoUIServerConfigPath = $ServiceBinPaths.DiscoUIServerConfigPath
+    $ConfigXML = [xml]((Invoke-SSHCommand -SSHSession $SshSession -Command "cat $DiscoUIServerConfigPath/config.xml").output)
+    $ConfigXML.domain.server
+}
