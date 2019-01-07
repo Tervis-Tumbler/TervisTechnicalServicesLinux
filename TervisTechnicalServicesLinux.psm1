@@ -301,8 +301,22 @@ function Invoke-OracleODBEEProvision{
     param (
         $EnvironmentName
     )
-    Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
-    $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $ApplicationName = "OracleODBEE"
+    Invoke-OracleApplicationProvision -ApplicationName $Applicationname -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $Applicationname -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $nodes | Invoke-InstallSSMTPForOffice365
+    $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
+    $Nodes | Install-PuppetonLinux
+    $Nodes | Invoke-CreateOracleUserAccounts
+}
+
+function Invoke-OracleIASProvision{
+    param (
+        $EnvironmentName
+    )
+    $ApplicationName = "OracleIAS"
+    Invoke-OracleApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
     $nodes | Invoke-InstallSSMTPForOffice365
     $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
     $Nodes | Install-PuppetonLinux
@@ -313,8 +327,9 @@ function Invoke-OracleWeblogicProvision{
     param (
         $EnvironmentName
     )
-    Invoke-OracleApplicationProvision -ApplicationName "OracleWeblogic" -EnvironmentName $EnvironmentName
-    $Nodes = Get-TervisApplicationNode -ApplicationName "OracleWeblogic" -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $ApplicationName = "OracleWeblogic"
+    Invoke-OracleApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $Applicationname -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
     $nodes | Invoke-InstallSSMTPForOffice365
     $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
     $Nodes | Install-PuppetonLinux
@@ -1397,6 +1412,7 @@ function Install-PowershellCoreForLinux {
 function Invoke-ProcessOracleLinuxTemplateFiles {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(ValueFromPipelineByPropertyName)]$ApplicationName,
         [Parameter(ValueFromPipelineByPropertyName)]$EnvironmentName,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SFTPSession,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
@@ -1404,7 +1420,7 @@ function Invoke-ProcessOracleLinuxTemplateFiles {
     )
     begin {
         $TervisTechnicalservicesLinuxModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
-        $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\OracleLinuxTemplateHome"
+        $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\$ApplicationName"
         $OracleODBEETemplateTempPath = "$TervisTechnicalservicesLinuxModulePath\Temp"
         $OracleODBEERootPath = "/"
     }
@@ -1804,6 +1820,15 @@ function Stop-OracleIAS{
     $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l"
     $IASProcessCleanupKillCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | awk -v FS='/' '{print `$3}' | xargs kill -9"
     $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
+
+    $SSHCommand = @"
+    $($SID.ToLower())
+    adstpall.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)
+    sleep 120
+    ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l
+    "@ -split "`r`n" -join ";"
+    
+
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
