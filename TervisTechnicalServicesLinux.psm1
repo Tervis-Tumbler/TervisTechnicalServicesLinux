@@ -318,9 +318,11 @@ function Invoke-OracleIASProvision{
     Invoke-OracleApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
     $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
     $nodes | Invoke-InstallSSMTPForOffice365
-    $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
+    $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -ApplicationName $Applicationname -Overwrite
     $Nodes | Install-PuppetonLinux
     $Nodes | Invoke-CreateOracleUserAccounts
+    $Nodes | Invoke-YumUpdateOnLinux
+    $Nodes | Install-GnomeDesktopOnLinux
 }
 
 function Invoke-OracleWeblogicProvision{
@@ -1418,13 +1420,11 @@ function Invoke-ProcessOracleLinuxTemplateFiles {
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
         [switch]$Overwrite
     )
-    begin {
+    process {
         $TervisTechnicalservicesLinuxModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
-        $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\$ApplicationName"
+        $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\OracleLinuxTemplateHome\$ApplicationName"
         $OracleODBEETemplateTempPath = "$TervisTechnicalservicesLinuxModulePath\Temp"
         $OracleODBEERootPath = "/"
-    }
-    process {
 #        $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName
 #        $NodeNumber = $Nodes.ComputerName.IndexOf($ComputerName) + 1
 
