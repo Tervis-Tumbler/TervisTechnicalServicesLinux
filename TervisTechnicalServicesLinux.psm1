@@ -308,7 +308,7 @@ function Invoke-OracleODBEEProvision{
     $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
     $Nodes | Install-PuppetonLinux
     $Nodes | Invoke-CreateOracleUserAccounts
-}
+    $Nodes | Install-GnomeDesktopOnLinux}
 
 function Invoke-OracleIASProvision{
     param (
@@ -2488,4 +2488,20 @@ cd $($UIDomainBinPath)
             Invoke-SSHCommand -SSHSession $SSHSession -Command $SSHCommand
         }
     }
+}
+
+function Install-GnomeDesktopOnLinux {
+    param(
+        [parameter(mandatory)]$SSHSession
+    )
+    $InstallCommand = "yum -y groupinstall 'X Window System' 'GNOME'"
+    Invoke-SSHCommand -SSHSession $SSHSession -Command $Command -TimeOut 1200
+}
+
+function Invoke-YumUpdateOnLinux {
+    param(
+        [parameter(mandatory)]$SSHSession
+    )
+    $InstallCommand = "yum -y update"
+    Invoke-SSHCommand -SSHSession $SSHSession -Command $Command -TimeOut 1200
 }
