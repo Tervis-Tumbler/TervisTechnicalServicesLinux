@@ -878,12 +878,21 @@ function Set-LinuxAccountPassword {
     param (
         [Parameter(Mandatory)]$ComputerName,
         [Parameter(Mandatory)]$Credential,
-        [Parameter(Mandatory)]$NewCredential
+        [Parameter(Mandatory)]$NewCredential,
+        [Switch]$UsePSSession
     )
-    $SSHSession = New-SSHSession -ComputerName $ComputerName -Credential $Credential -AcceptKey
-    $Command = "echo `"$($NewCredential.UserName):$($NewCredential.GetNetworkCredential().Password)`" | chpasswd"
-    Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
-    Remove-SSHSession -SSHSession $SSHSession
+    $Command = @"
+echo "$($NewCredential.UserName):$($NewCredential.GetNetworkCredential().Password)" | chpasswd
+"@
+    if ($UsePSSession) {
+        Invoke-Command -HostName -Credential $Credential -ScriptBlock {
+            & $Command
+        }
+    } elseif (-not $UsePSSession) {
+        $SSHSession = New-SSHSession -ComputerName $ComputerName -Credential $Credential -AcceptKey
+        Invoke-SSHCommand -Command $Command -SSHSession $SSHSession
+        Remove-SSHSession -SSHSession $SSHSession
+    }
 }
 
 function Add-OVMNodeVMProperty {
