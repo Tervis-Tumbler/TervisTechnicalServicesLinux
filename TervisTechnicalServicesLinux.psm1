@@ -301,20 +301,37 @@ function Invoke-OracleODBEEProvision{
     param (
         $EnvironmentName
     )
-    Invoke-OracleApplicationProvision -ApplicationName "OracleODBEE" -EnvironmentName $EnvironmentName
-    $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $ApplicationName = "OracleODBEE"
+    Invoke-OracleApplicationProvision -ApplicationName $Applicationname -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $Applicationname -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
     $nodes | Invoke-InstallSSMTPForOffice365
     $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
     $Nodes | Install-PuppetonLinux
     $Nodes | Invoke-CreateOracleUserAccounts
+    $Nodes | Install-GnomeDesktopOnLinux}
+
+function Invoke-OracleIASProvision{
+    param (
+        $EnvironmentName
+    )
+    $ApplicationName = "OracleIAS"
+    Invoke-OracleApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $nodes | Invoke-InstallSSMTPForOffice365
+    $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -ApplicationName $Applicationname -Overwrite
+    $Nodes | Install-PuppetonLinux
+    $Nodes | Invoke-CreateOracleUserAccounts
+    $Nodes | Invoke-YumUpdateOnLinux
+    $Nodes | Install-GnomeDesktopOnLinux
 }
 
 function Invoke-OracleWeblogicProvision{
     param (
         $EnvironmentName
     )
-    Invoke-OracleApplicationProvision -ApplicationName "OracleWeblogic" -EnvironmentName $EnvironmentName
-    $Nodes = Get-TervisApplicationNode -ApplicationName "OracleWeblogic" -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $ApplicationName = "OracleWeblogic"
+    Invoke-OracleApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $Applicationname -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
     $nodes | Invoke-InstallSSMTPForOffice365
     $Nodes | Invoke-ProcessOracleLinuxTemplateFiles -Overwrite
     $Nodes | Install-PuppetonLinux
@@ -1406,18 +1423,17 @@ function Install-PowershellCoreForLinux {
 function Invoke-ProcessOracleLinuxTemplateFiles {
     param (
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ComputerName,
+        [Parameter(ValueFromPipelineByPropertyName)]$ApplicationName,
         [Parameter(ValueFromPipelineByPropertyName)]$EnvironmentName,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$SFTPSession,
         [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$IPAddress,
         [switch]$Overwrite
     )
-    begin {
+    process {
         $TervisTechnicalservicesLinuxModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
-        $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\OracleLinuxTemplateHome"
+        $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\OracleLinuxTemplateHome\$ApplicationName"
         $OracleODBEETemplateTempPath = "$TervisTechnicalservicesLinuxModulePath\Temp"
         $OracleODBEERootPath = "/"
-    }
-    process {
 #        $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName
 #        $NodeNumber = $Nodes.ComputerName.IndexOf($ComputerName) + 1
 
@@ -1508,6 +1524,11 @@ function Set-LinuxFirewall{
 
     Zeta
     firewall-cmd --add-port 1526/tcp --permanent 
+
+    Zet-IAS01
+    firewall-cmd --add-port 8005/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --reload
 
     Dlt-odbee01
     firewall-cmd --add-port 1521/tcp --permanent 
@@ -1813,6 +1834,15 @@ function Stop-OracleIAS{
     $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l"
     $IASProcessCleanupKillCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | awk -v FS='/' '{print `$3}' | xargs kill -9"
     $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
+
+    $SSHCommand = @"
+    $($SID.ToLower())
+    adstpall.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)
+    sleep 120
+    ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l
+    "@ -split "`r`n" -join ";"
+    
+
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
@@ -1835,15 +1865,15 @@ function Stop-OracleInfadac{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $DACWLBinPath = $ServiceBinPaths.InfaDACWLBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
 #    $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-    $SSHShellStream.WriteLine("cd $($DACWLBinPath)")
+    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
     $SSHShellStream.Read()
-    $SSHShellStream.WriteLine("$($DACWLBinPath)/stopserver.sh")
+    $SSHShellStream.WriteLine("$($WLServerBinPath)/stopserver.sh")
     Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
 }
@@ -1855,8 +1885,8 @@ param(
     [parameter(mandatory)]$SSHSession
 )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
-    $UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1886,7 +1916,7 @@ function Stop-OracleDiscoverer{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $UIDomainBinPath = $ServiceBinPaths.DiscoUIDomainBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1915,7 +1945,7 @@ function Stop-OracleSOAWeblogic{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $UIDomainBinPath = $ServiceBinPaths.SOAUIDomainBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -1968,15 +1998,15 @@ function Start-OracleInfadac{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $DACWLBinPath = $ServiceBinPaths.InfaDACWLBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-    $SSHShellStream.WriteLine("cd $($DACWLBinPath)")
+    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
     $SSHShellStream.Read()
-    $SSHShellStream.WriteLine("nohup $($DACWLBinPath)/startserver.sh")
+    $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startserver.sh")
     Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
@@ -2001,8 +2031,8 @@ do
 done
 "@
 $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-$WLServerBinPath = $ServiceBinPaths.RPWLServerBinPath
-$UIDomainBinPath = $ServiceBinPaths.RPUIDomainBinPath
+$WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+$UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
 $ExpectString = "SSHShellStreamPrompt"
 $TimeSpan = New-TimeSpan -Minutes 5
 $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -2037,14 +2067,14 @@ function Start-OracleDiscoverer{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $WLServerBinPath = $ServiceBinPaths.DiscoWLServerBinPath
-    $UIDomainBinPath = $ServiceBinPaths.DiscoUIDomainBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $startNodeManagerTailCommand = @"
 tail -f nohup.out  | while read LOGLINE
 do
-[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+[[ "`${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
 done
 "@
 $startWeblogicTailCommand = @"
@@ -2092,7 +2122,7 @@ function Start-OracleSOAWeblogic{
     $startNodeManagerTailCommand = @"
 tail -f nohup.out  | while read LOGLINE
 do
-[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+[[ "`${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
 done
 "@
 $startWeblogicTailCommand = @"
@@ -2103,8 +2133,8 @@ done
 "@
     
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $WLServerBinPath = $ServiceBinPaths.SOAWLServerBinPath
-    $UIDomainBinPath = $ServiceBinPaths.SOAUIDomainBinPath
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
@@ -2139,7 +2169,7 @@ function Start-OracleBIWeblogic{
     $startNodeManagerTailCommand = @"
 tail -f nohup.out  | while read LOGLINE
 do
-[[ "${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+[[ "`${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
 done
 "@
     $startWeblogicTailCommand = @"
@@ -2410,3 +2440,82 @@ tcp    ESTAB      0      0      10.172.44.11:48410                10.172.68.5:is
     Remove-SSHSession -SSHSession $SshSession | Out-Null
 }
 
+function Get-OracleWeblogicManagedServersFromConfig{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $UIServerConfigPath = $ServiceBinPaths.UIServerConfigPath
+    $ConfigXML = [xml]((Invoke-SSHCommand -SSHSession $SshSession -Command "cat $UIServerConfigPath/config.xml").output)
+    $ConfigXML.domain.server
+}
+
+function Start-OracleWeblogicManagedServers{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
+    $ManagedServers = Get-OracleWeblogicManagedServersFromConfig @PSBoundParameters
+    $AdminServer = $ManagedServers | Where-Object name -eq AdminServer
+#    $AdminServerPort = $AdminServer."listen-port"
+
+    ForEach($ManagedServer in $ManagedServers){
+        $NohupFileName = "nohup.$($ManagedServer.name)"
+        $SSHCommand = @"
+$($SID.ToLower())
+cd $($UIDomainBinPath)
+rm -f $($NohupFileName)
+nohup ./startManagedWebLogic.sh $($ManagedServer.name) t3://localhost:$($AdminServerPort) > $($NohupFileName) &
+"@ -split "`r`n" -join ";"
+
+    If($ManagedServer.name -ne "AdminServer"){
+            Invoke-SSHCommand -SSHSession $SSHSession -Command $SSHCommand
+        }
+    }
+}
+
+function Stop-OracleWeblogicManagedServers{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID,
+        [parameter(mandatory)]$SSHSession
+    )
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
+    $ManagedServers = Get-OracleWeblogicManagedServersFromConfig @PSBoundParameters
+    $AdminServer = $ManagedServers | Where-Object name -eq AdminServer
+#    $AdminServerPort = $AdminServer."listen-port"
+
+    ForEach($ManagedServer in $ManagedServers){
+        $SSHCommand = @"
+$($SID.ToLower())
+cd $($UIDomainBinPath)
+./StopManagedWebLogic.sh $($ManagedServer.name) t3://localhost:$($AdminServerPort)
+"@ -split "`r`n" -join ";"
+
+    If($ManagedServer.name -ne "AdminServer"){
+            Invoke-SSHCommand -SSHSession $SSHSession -Command $SSHCommand
+        }
+    }
+}
+
+function Install-GnomeDesktopOnLinux {
+    param(
+        [parameter(mandatory)]$SSHSession
+    )
+    $InstallCommand = "yum -y groupinstall 'X Window System' 'GNOME'"
+    Invoke-SSHCommand -SSHSession $SSHSession -Command $Command -TimeOut 1200
+}
+
+function Invoke-YumUpdateOnLinux {
+    param(
+        [parameter(mandatory)]$SSHSession
+    )
+    $InstallCommand = "yum -y update"
+    Invoke-SSHCommand -SSHSession $SSHSession -Command $Command -TimeOut 1200
+}

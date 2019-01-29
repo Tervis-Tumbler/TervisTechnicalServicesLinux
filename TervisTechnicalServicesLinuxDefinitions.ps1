@@ -272,37 +272,45 @@ $TervisOracleServiceBinPaths = [PSCustomObject][Ordered]@{
 [PSCustomObject][Ordered]@{
     SID = "DEVRP"
     Paths = [PSCustomObject][Ordered]@{
-        RPWLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
-        RPUIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+        WLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+        UIServerConfigPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/config"
     }
 },
 [PSCustomObject][Ordered]@{
     SID = "DEVSOA"
     Paths = [PSCustomObject][Ordered]@{
-        SOAWLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
-        SOAUIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/bin"
+        WLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/bin"
+        UIServerConfigPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/DEV_SOAdomain/config"
      }
 },
 [PSCustomObject][Ordered]@{
     SID = "DEVBI"
     Paths = [PSCustomObject][Ordered]@{
-        BIWLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
-        BIUIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/bin"
+        WLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/bin"
+        UIServerConfigPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomanin/config"
       }
 },
 [PSCustomObject][Ordered]@{
     SID = "DEVSOA12"
     Paths = [PSCustomObject][Ordered]@{
-        SOAWLServerBinPath = "/soabin/app/applmgr/Middleware_SOA12/wlserver/server/bin"
-        SOAUIDomainBinPath = "/soabin/app/applmgr/Middleware_SOA12/user_projects/domains/DEV_SOA12domain/bin"
+        WLServerBinPath = "/soabin/app/applmgr/Middleware_SOA12/wlserver/server/bin"
+        UIDomainBinPath = "/soabin/app/applmgr/Middleware_SOA12/user_projects/domains/DEV_SOA12domain/bin"
+        UIServerConfigPath = "/soabin/app/applmgr/Middleware_SOA12/user_projects/domains/DEV_SOA12domain/config"
      }
 },
 [PSCustomObject][Ordered]@{
     SID = "DEVDISCO"
     Paths = [PSCustomObject][Ordered]@{
-        DiscoWLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
-        DiscoUIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/bin"
+        WLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/bin"
+        UIServerConfigPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/DEVDisco_Domain/config"
       }
+    ServiceDetails = [PSCustomObject][Ordered]@{
+
+    }
 },
 [PSCustomObject][Ordered]@{
     SID = "SITINFADAC"
@@ -313,45 +321,72 @@ $TervisOracleServiceBinPaths = [PSCustomObject][Ordered]@{
 [PSCustomObject][Ordered]@{
     SID = "SITDISCO"
     Paths = [PSCustomObject][Ordered]@{
-        DiscoWLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
-        DiscoUIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/SITDisco_Domain/bin"
+        WLServerBinPath = "/u04/app/applmgr/Middleware_DISCO/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/SITDisco_Domain/bin"
+        UIServerConfigPath = "/u04/app/applmgr/Middleware_DISCO/user_projects/domains/SITDisco_Domain/config"
       }
 },
 [PSCustomObject][Ordered]@{
     SID = "SITSOA"
     Paths = [PSCustomObject][Ordered]@{
-        SOAWLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
-        SOAUIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/SITSOA_Domain/bin"
+        WLServerBinPath = "/u02/app/applmgr/Middleware_SOA/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/SITSOA_Domain/bin"
+        UIServerConfigPath = "/u02/app/applmgr/Middleware_SOA/user_projects/domains/SITSOA_Domain/config"
       }
 },
 [PSCustomObject][Ordered]@{
     SID = "SITBI"
     Paths = [PSCustomObject][Ordered]@{
-        BIWLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
-        BIUIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomain/bin"
+        WLServerBinPath = "/u01/app/applmgr/Middleware_BI/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomain/bin"
+        UIServerConfigPath = "/u01/app/applmgr/Middleware_BI/user_projects/domains/BIDomain/config"
       }
 },
 [PSCustomObject][Ordered]@{
     SID = "SITRP"
     Paths = [PSCustomObject][Ordered]@{
-        RPWLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
-        RPUIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+        WLServerBinPath = "/u03/app/applmgr/Middleware_RP/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+        UIServerConfigPath = "/u03/app/applmgr/Middleware_RP/user_projects/domains/RP_UIDomain/config"
       }
-}
+},
 [PSCustomObject][Ordered]@{
-    SID = "PRD"
+    SID = "PRDINFADAC"
     Paths = [PSCustomObject][Ordered]@{
-        SOAWLServerBinPath = "/soabin/Middleware_SOA/wlserver_10.3/server/bin"
-        SOAUIDomainBinPath = "/soabin/Middleware_SOA/user_projects/domains/PRDSOA_Domain/bin"
-        BIWLServerBinPath = "/obieebin/Middleware_BI/wlserver_10.3/server/bin"
-        BIUIDomainBinPath = "/obieebin/Middleware_BI/user_projects/domains/PRD_BIDomain/bin"
-        DiscoWLServerBinPath = "/discobin/Middleware_DISCO/wlserver_10.3/server/bin"
-        DiscoUIDomainBinPath = "/discobin/Middleware_DISCO/user_projects/domains/PRD_DiscoDomain/bin"
-        RPWLServerBinPath = "/rpbin/Middleware_RP/wlserver_10.3/server/bin"
-        RPUIDomainBinPath = "/rpbin/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
         InfaDACWLBinPath = "/infadacbin/app/applmgr/BI_INSTALL/product/HOME_DAC/dac"
     }
+},
+[PSCustomObject][Ordered]@{
+    SID = "PRDDISCO"
+    Paths = [PSCustomObject][Ordered]@{
+        WLServerBinPath = "/discobin/Middleware_DISCO/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/discobin/Middleware_DISCO/user_projects/domains/PRD_DiscoDomain/bin"
+        UIServerConfigPath = "/discobin/Middleware_DISCO/user_projects/domains/PRD_DiscoDomain/config"
+      }
+},
+[PSCustomObject][Ordered]@{
+    SID = "PRDSOA"
+    Paths = [PSCustomObject][Ordered]@{
+        WLServerBinPath = "/soabin/Middleware_SOA/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/soabin/Middleware_SOA/user_projects/domains/PRDSOA_Domain/bin"
+        UIServerConfigPath = "/soabin/Middleware_SOA/user_projects/domains/PRDSOA_Domain/config"
+      }
+},
+[PSCustomObject][Ordered]@{
+    SID = "PRDBI"
+    Paths = [PSCustomObject][Ordered]@{
+        WLServerBinPath = "/obieebin/Middleware_BI/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/obieebin/Middleware_BI/user_projects/domains/PRD_BIDomain/bin"
+        UIServerConfigPath = "/obieebin/Middleware_BI/user_projects/domains/PRD_BIDomain/config"
+      }
+},
+[PSCustomObject][Ordered]@{
+    SID = "PRDRP"
+    Paths = [PSCustomObject][Ordered]@{
+        WLServerBinPath = "/rpbin/Middleware_RP/wlserver_10.3/server/bin"
+        UIDomainBinPath = "/rpbin/Middleware_RP/user_projects/domains/RP_UIDomain/bin"
+        UIServerConfigPath = "/rpbin/Middleware_RP/user_projects/domains/RP_UIDomain/config"
+      }
 }
-
 
 #/soabin/app/applmgr/Middleware_SOA12/user_projects/domains/DEV_SOA12domain/bin/
