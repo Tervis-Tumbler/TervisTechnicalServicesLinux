@@ -1,5 +1,4 @@
-﻿#Requires -Modules TervisVirtualization
-$ModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
+﻿$ModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
 . $ModulePath\TervisTechnicalServicesLinuxDefinitions.ps1
 
 
