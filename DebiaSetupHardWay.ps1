@@ -73,3 +73,5 @@ invoke-command -Session $Session -ScriptBlock {
 }
 Enter-PSSession -Session $Session
 
+https://ritsch.io/2017/08/11/automatic-updates-on-debian.html
+docker cp envoy.yaml envoy:/etc/envoy/envoy.yaml
