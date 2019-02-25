@@ -371,7 +371,8 @@ function Invoke-OVMApplicationNodeVMProvision {
         $DHCPScope = Get-TervisDhcpServerv4Scope -Environment $Node.EnvironmentName
         $TervisVMParameters = @{
             VMNameWithoutEnvironmentPrefix = $Node.NameWithoutPrefix
-            VMOperatingSystemTemplateName = $ApplicationDefinition.VMOperatingSystemTemplateName
+            #VMOperatingSystemTemplateName = $ApplicationDefinition.VMOperatingSystemTemplateName
+            VMOperatingSystemTemplateName = "OEL-75-Template"
             EnvironmentName = $Node.EnvironmentName
         }
         $TervisVMParameters | Write-VerboseAdvanced -Verbose:($VerbosePreference -ne "SilentlyContinue")
@@ -1716,7 +1717,7 @@ function Stop-OracleDatabaseListener{
     $ListenerProcessCount = (Invoke-SSHCommand -SSHSession $SSHSession -Command $ListenerProcessCountCommand).output
     if ($ListenerProcessCount -ge 1){
         $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
-        $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+        $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
         $SSHShellStream.WriteLine($SID.ToLower())
         $SSHShellStream.Read()
         $SSHShellStream.WriteLine("lsnrctl stop $SID")
@@ -1737,6 +1738,7 @@ function Start-OracleDatabaseListener{
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("lsnrctl start $SID")
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
 }
 
@@ -1747,20 +1749,20 @@ function Stop-OracleDatabase{
         [parameter(mandatory)]$SSHSession
     )
     $DatabaseShutdownCommand = @"
-sqlplus "/ as sysdba" <<EOF
+sqlplus '/ as sysdba'<<EOF
 shutdown immediate;
 exit;
 EOF
 "@
-    $TerminateDBConnectionsCommand = "ps -u `${LOGNAME} -o pid,args | grep 'oracle$($SID) (LOCAL=NO)' | grep -v grep | sort -r -n | awk '{print `$1}' | xargs kill -9"
+    $TerminateDBConnectionsCommand = "ps -u `${LOGNAME} -o pid,args | grep '$($SID) (LOCAL=NO)' | grep -v grep | sort -r -n | awk '{print `$1}' | xargs kill -9"
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     Invoke-SSHCommand -SSHSession $SSHSession -Command $TerminateDBConnectionsCommand
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine($DatabaseShutdownCommand)
     $SSHShellStream.Read()
+    $SSHShellStream.WriteLine($DatabaseShutdownCommand)
     if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
         Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
     }    
@@ -1773,16 +1775,16 @@ function Start-OracleDatabase{
         [parameter(mandatory)]$SSHSession
     )
     $DatabaseStartupCommand = @"
-sqlplus "/ as sysdba" <<EOF
+sqlplus "/ as sysdba"<<EOF
 startup;
 exit;
 EOF
 "@
     if ($ListenerProcessCount -le 1){
-        $ExpectString = "SSHShellStreamPrompt"
+        $ExpectString = "SSHShellStreamPrompt\\n\\r"
         $TimeSpan = New-TimeSpan -Minutes 5
         $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
-        $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+        $SSHShellStream.WriteLine("PS1=$ExpectString")
         $SSHShellStream.WriteLine($SID.ToLower())
         $SSHShellStream.Read()
         $SSHShellStream.WriteLine($DatabaseStartupCommand)
@@ -1809,7 +1811,7 @@ function Start-OracleIAS{
         [parameter(mandatory)]$SID,
         [parameter(mandatory)]$SSHSession
     )
-    $ExpectString = "SSHShellStreamPrompt"
+    $ExpectString = "SSHShellStreamPrompt\\n\\r"
     $TimeSpan = New-TimeSpan -Minutes 5
     $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
     $IASStartupCommand = "adstrtal.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
@@ -1817,12 +1819,12 @@ function Start-OracleIAS{
     $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("PS1=$ExpectString")
     $SSHShellStream.Read()
     if($IASProcessCount -le 1){
         $SSHShellStream.WriteLine($IASStartupCommand)
     }
-        if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
+    if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
         Write-Error -Message "IAS Startup Timed Out" -Category LimitsExceeded -ErrorAction Continue
     }    
 }
@@ -1846,12 +1848,12 @@ function Stop-OracleIAS{
     adstpall.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)
     sleep 120
     ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l
-    "@ -split "`r`n" -join ";"
+"@ -split "`r`n" -join ";"
     
 
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.Read()
     if($IASProcessCount -ge 1){
         $SSHShellStream.WriteLine($IASShutdownCommand)
@@ -1859,8 +1861,14 @@ function Stop-OracleIAS{
         if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
         Write-Error -Message "IAS Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Continue
     }    
-    Start-Sleep 120
-    Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCleanupKillCommand
+    do{
+        $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
+        Start-Sleep 10
+    }While($IASProcessCount -ge 1)
+
+
+#    Start-Sleep 120
+#    Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCleanupKillCommand
 }
 
 
@@ -1871,16 +1879,15 @@ function Stop-OracleInfadac{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+    $WLServerBinPath = $ServiceBinPaths.InfaDACWLBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
 #    $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("$($WLServerBinPath)/stopserver.sh")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
 }
 
@@ -1897,7 +1904,7 @@ param(
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
 #    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
 #    $SSHShellStream.Read()
 #    $SSHShellStream.WriteLine("$($WLServerBinPath)/stopWeblogic.sh")
@@ -1905,7 +1912,6 @@ param(
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("./stopWebLogic.sh")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("pkill -9 -f Middleware_RP")
@@ -1927,19 +1933,16 @@ function Stop-OracleDiscoverer{
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("opmnctl stopall")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("./stopWebLogic.sh")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("pkill -9 -f Middleware_DISCO")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
 }
@@ -1956,14 +1959,13 @@ function Stop-OracleSOAWeblogic{
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("./stopWebLogic.sh")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
     $SSHShellStream.WriteLine("pkill -9 -f Middleware_SOA")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
 }
@@ -1975,26 +1977,23 @@ function Stop-OracleBIWeblogic{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("opmnctl stopall")
-    Start-Sleep 1
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("./stopWebLogic.sh")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("pkill -9 -f Middleware_BI")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
-    $SSHShellStream.Read()
 }
 
 function Start-OracleInfadac{
@@ -2009,11 +2008,10 @@ function Start-OracleInfadac{
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
-    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("$ExpectString\\n\\r")
     $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startserver.sh")
-    Start-Sleep 1
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
 }
@@ -2036,34 +2034,37 @@ do
 [[ "`${LOGLINE}" == *"Server started in RUNNING mode"* ]] && pkill -P `$`$ tail
 done
 "@
-$ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-$WLServerBinPath = $ServiceBinPaths.WLServerBinPath
-$UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
-$ExpectString = "SSHShellStreamPrompt"
-$TimeSpan = New-TimeSpan -Minutes 5
-$SSHShellStream = New-SSHShellStream -SSHSession $SshSession
-$SSHShellStream.WriteLine($SID.ToLower())
-$SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
-$SSHShellStream.WriteLine("cd $($WLServerBinPath)")
-$SSHShellStream.WriteLine("rm -f nohup.out")
-$SSHShellStream.Read()
-$SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
-$SSHShellStream.WriteLine($startNodeManagerTailCommand)
-$SSHShellStream.Expect($ExpectString,$TimeSpan)
-$SSHShellStream.Read()
-
-$SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
-$SSHShellStream.WriteLine("rm -f nohup.out")
-$SSHShellStream.Read()
-$SSHShellStream.WriteLine("nohup $($UIDomainBinPath)/startWebLogic.sh &")
-$SSHShellStream.WriteLine($startWeblogicTailCommand)
-$SSHShellStream.Expect($ExpectString,$TimeSpan)
-$SSHShellStream.Read()
-
-$SSHShellStream.WriteLine("./startManagedWebLogic.sh oim_server1 http://localhost:7001")
-$SSHShellStream.Expect($ExpectString,$TimeSpan)
-$SSHShellStream.Read()
-
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $WLServerBinPath = $ServiceBinPaths.WLServerBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
+    $ExpectString = "SSHShellStreamPrompt"
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.WriteLine("PS1=SSHShellStreamPrompt")
+    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
+    $SSHShellStream.WriteLine("rm -f nohup.out")
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
+    $SSHShellStream.WriteLine($startNodeManagerTailCommand)
+    $SSHShellStream.Read()
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    
+    $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
+    $SSHShellStream.WriteLine("rm -f nohup.out")
+    $SSHShellStream.Read()
+    $SSHShellStream.WriteLine("nohup $($UIDomainBinPath)/startWebLogic.sh &")
+    $SSHShellStream.WriteLine($startWeblogicTailCommand)
+    $SSHShellStream.Read()
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    
+    $SSHShellStream.WriteLine("./startManagedWebLogic.sh oim_server1 http://localhost:7001")
+    $SSHShellStream.Read()
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    
 }
 
 function Start-OracleDiscoverer{
@@ -2097,22 +2098,23 @@ done
     $SSHShellStream.WriteLine("rm -f nohup.out")
     $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
     $SSHShellStream.WriteLine($startNodeManagerTailCommand)
-    Start-Sleep 1
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("opmnctl startall")
-    Start-Sleep 1
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.WriteLine("rm -f nohup.out")
     $SSHShellStream.WriteLine("nohup startWebLogic.sh &")
     $SSHShellStream.WriteLine($startWeblogicTailCommand)
-    Start-Sleep 1
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
 
     $SSHShellStream.WriteLine("./startManagedWebLogic.sh oim_server1 http://localhost:7001")
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     
@@ -2151,14 +2153,14 @@ done
     $SSHShellStream.WriteLine("nohup ./startNodeManager.sh &")
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine($startNodeManagerTailCommand)
-    Start-Sleep 1
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.WriteLine("rm -f nohup.out")
     $SSHShellStream.WriteLine("nohup startWebLogic.sh &")
     $SSHShellStream.WriteLine($startWeblogicTailCommand)
-    Start-Sleep 1
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
 
@@ -2196,18 +2198,22 @@ done
     $SSHShellStream.WriteLine("rm -f nohup.out")
     $SSHShellStream.WriteLine("nohup $($WLServerBinPath)/startNodeManager.sh &")
     $SSHShellStream.WriteLine($startNodeManagerTailCommand)
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.WriteLine("opmnctl startall")
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
     $SSHShellStream.WriteLine("rm -f nohup.out")
     $SSHShellStream.WriteLine("nohup startWebLogic.sh &")
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
 
     $SSHShellStream.WriteLine("./startManagedWebLogic.sh oim_server1 http://localhost:7001")
+    $SSHShellStream.Read()
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
 ###Start BI Managed Server###
