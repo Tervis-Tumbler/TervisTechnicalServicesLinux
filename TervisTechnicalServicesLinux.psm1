@@ -2433,6 +2433,45 @@ function Start-TervisOracleSITEnvironment{
     Get-SSHSession | Remove-SSHSession
 }
 
+function Start-TervisOracleSBXEnvironment{
+    $ComputerList = Get-OracleServerDefinition -Environment Epsilon
+    $Credential = Get-PasswordstatePassword -ID 4693 -AsCredential
+    $ApplmgrUserCredential = Get-PasswordstatePassword -ID 4767 -AsCredential
+    $OracleUserCredential = Get-PasswordstatePassword -ID 5571 -AsCredential
+    $SystemsUsingOracleUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "oracle"
+    $SystemsUsingApplmgrUserCredential = $ComputerList | Where-Object ServiceUserAccount -eq "applmgr"
+    New-SSHSession -ComputerName $SystemsUsingOracleUserCredential.Computername -AcceptKey -Credential $OracleUserCredential
+    New-SSHSession -ComputerName $SystemsUsingApplmgrUserCredential.Computername -AcceptKey -Credential $ApplmgrUserCredential
+    $RPWeblogic = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RP Weblogic"
+    $DiscoWeblogic = Get-OracleServerDefinition -SID SITDisco | Where-Object Services -Match "Disco Weblogic"
+    $BIWeblogic = Get-OracleServerDefinition -SID SITBI | Where-Object Services -Match "OBIEE Weblogic"
+    $SOAWeblogic = Get-OracleServerDefinition -SID SITSOA | Where-Object Services -Match "SOA Weblogic"
+    $RPIAS = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RPIAS"
+    $EBSIAS = Get-OracleServerDefinition -SID SIT | Where-Object Services -Match "EBSIAS"
+    $EBSODBEE = Get-OracleServerDefinition -SID SIT | Where-Object Services -Match "EBSODBEE"
+    $SOAODBEE = Get-OracleServerDefinition -SID SITSOA | Where-Object Services -Match "SOAODBEE"
+    $OBIAODBEE = Get-OracleServerDefinition -SID SITBI | Where-Object Services -Match "OBIAODBEE"
+    $OBIEEODBEE = Get-OracleServerDefinition -SID SITDWH | Where-Object Services -Match "OBIAODBEE"
+    $RPODBEE = Get-OracleServerDefinition -SID SITRP | Where-Object Services -Match "RPODBEE"
+    Start-OracleDatabase -Computername $EBSODBEE.Computername -SID SIT -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+    Start-OracleDatabase -Computername $SOAODBEE.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Start-OracleDatabase -Computername $RPODBEE.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Start-OracleDatabase -Computername $OBIAODBEE.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Start-OracleDatabase -Computername $OBIEEODBEE.Computername -SID SITDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $OBIEEODBEE.Computername -SID SITDWH -SSHSession (get-sshsession -ComputerName $OBIEEODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $OBIAODBEE.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $OBIAODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $RPODBEE.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $SOAODBEE.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAODBEE.Computername)
+    Start-OracleDatabaseListener -Computername $EBSODBEE.Computername -SID SIT -SSHSession (get-sshsession -ComputerName $EBSODBEE.Computername)
+    Start-OracleIAS -Computername $EBSIAS.ComputerName -SID SIT -SSHSession (get-sshsession -ComputerName $EBSIAS.Computername)
+    Start-OracleIAS -Computername $RPIAS.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPIAS.Computername)
+    Start-OracleRPWeblogic -Computername $RPWeblogic.Computername -SID SITRP -SSHSession (get-sshsession -ComputerName $RPWeblogic.Computername)
+    Start-OracleSOAWeblogic -Computername $SOAWeblogic.Computername -SID SITSOA -SSHSession (get-sshsession -ComputerName $SOAWeblogic.Computername)
+    Start-OracleBIWeblogic -Computername $BIWeblogic.Computername -SID SITBI -SSHSession (get-sshsession -ComputerName $BIWeblogic.Computername)
+    Start-OracleDiscoverer -Computername $DiscoWeblogic.Computername -SID SITDISCO -SSHSession (get-sshsession -ComputerName $DiscoWeblogic.Computername)
+    Get-SSHSession | Remove-SSHSession
+}
+
 function Get-LinuxSSCommandTCPInformation{
     param(
         [parameter(Mandatory)]$Hostname,
