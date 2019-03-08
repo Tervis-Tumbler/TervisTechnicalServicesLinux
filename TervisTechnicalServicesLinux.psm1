@@ -322,6 +322,7 @@ function Invoke-OracleIASProvision{
     $Nodes | Invoke-CreateOracleUserAccounts
     $Nodes | Invoke-YumUpdateOnLinux
     $Nodes | Install-GnomeDesktopOnLinux
+    $Nodes | Invoke-ConfigureSSMTPForOffice365
 }
 
 function Invoke-OracleWeblogicProvision{
@@ -1440,7 +1441,7 @@ function Invoke-ProcessOracleLinuxTemplateFiles {
         $TervisTechnicalservicesLinuxModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
         $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\OracleLinuxTemplateHome\$ApplicationName"
         $OracleODBEETemplateTempPath = "$TervisTechnicalservicesLinuxModulePath\Temp"
-        $OracleODBEERootPath = "/"
+        $OracleRootPath = "/"
 #        $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName
 #        $NodeNumber = $Nodes.ComputerName.IndexOf($ComputerName) + 1
 
@@ -1454,7 +1455,7 @@ function Invoke-ProcessOracleLinuxTemplateFiles {
         }
 
         Invoke-ProcessTemplatePath -Path $OracleLinuxTemplateFilesPath -DestinationPath $OracleODBEETemplateTempPath -TemplateVariables $TemplateVariables
-        Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $OracleODBEETemplateTempPath -SFTPSession $SFTPSession -Overwrite:$Overwrite
+        Copy-PathToSFTPDestinationPath -DestinationPath $OracleRootPath -Path $OracleODBEETemplateTempPath -SFTPSession $SFTPSession -Overwrite:$Overwrite
     }
 }
 
@@ -1470,18 +1471,19 @@ function Copy-OracleServerIdentityToNewSystem {
         $OracleODBEERootPath = "/"
     }
     process {
-        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search "eps-odbee01 - root" -PasswordListID 46 -AsCredential
-        $PasswordstateCredentialofTemporarilyDeployedComputer = Get-PasswordstatePassword -ID 5361 -AsCredential
+#        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -Search "eps-odbee01 - root" -PasswordListID 46 -AsCredential
+        $PasswordstateCredentialOfComputerBeingReplaced = Find-PasswordstatePassword -HostName "$computernameofserverbeingreplaced - root" -PasswordListID 46 -AsCredential
+        $PasswordstateCredentialofTemporarilyDeployedComputer = Get-PasswordstatePassword -ID 5715 -AsCredential
         $SSHSessionOfComputerBeingReplaced = New-SSHSession -ComputerName $ComputernameOfServerBeingReplaced -Credential $PasswordstateCredentialOfComputerBeingReplaced
         $SSHSessionOfTemporarilyDeployedComputer = New-SSHSession -ComputerName $TemporarilyDeployedComputername -Credential $PasswordstateCredentialofTemporarilyDeployedComputer
         $SFTPSessionOfTemporarilyDeployedComputer = New-SFTPSession -ComputerName $TemporarilyDeployedComputername -Credential $PasswordstateCredentialofTemporarilyDeployedComputer
         $VMObjectOfServerBeingReplaced = Get-OVMVirtualMachines -Name $ComputernameOfServerBeingReplaced
         $VMObjectOfTemporarilyDeployedServer = Get-OVMVirtualMachines -Name $TemporarilyDeployedComputername
-        #Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfComputerBeingReplaced -ComputerName $ComputernameOfServerBeingReplaced
-        #Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfTemporarilyDeployedComputer -ComputerName $TemporarilyDeployedComputername
+        Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfComputerBeingReplaced -ComputerName $ComputernameOfServerBeingReplaced
+        Invoke-DisjoinLinuxFromADDomain -SSHSession $SSHSessionOfTemporarilyDeployedComputer -ComputerName $TemporarilyDeployedComputername
         #Sync-ADDomainControllers
         #Join-LinuxToADDomain -SSHSession
-        #Stop-OVMVirtualMachine -ID $VMObjectOfServerBeingReplaced.id.value
+        Stop-OVMVirtualMachine -ID $VMObjectOfServerBeingReplaced.id.value
         Rename-OVMVirtualMachine -VMID $VMObjectOfServerBeingReplaced.id.value -NewName "$ComputernameOfServerBeingReplaced-orig"
         Rename-OVMVirtualMachine -VMID $VMObjectOfTemporarilyDeployedServer.id.value -NewName "$ComputernameOfServerBeingReplaced"
         Copy-PathToSFTPDestinationPath -DestinationPath $OracleODBEERootPath -Path $ServerMigrationSourceFilePath -SFTPSession $SFTPSessionOfTemporarilyDeployedComputer -Overwrite
@@ -1529,7 +1531,7 @@ function Set-LinuxFirewall{
     All
     firewall-cmd --permanent --add-service=nfs --add-service=snmp
 
-    Zeta
+    Zet-odbee01
     firewall-cmd --add-port 1526/tcp --permanent 
 
     Zet-IAS01
@@ -1556,6 +1558,22 @@ function Set-LinuxFirewall{
 
     Dlt-weblogic02
     firewall-cmd --add-port 1521/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --add-port 7006/tcp --permanent 
+    firewall-cmd --reload
+
+    EPS-Weblogic02
+    firewall-cmd --add-port 1523/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --add-port 7002/tcp --permanent
+    firewall-cmd --add-port 7003/tcp --permanent
+    firewall-cmd --add-port 7004/tcp --permanent
+    firewall-cmd --add-port 7005/tcp --permanent
+    firewall-cmd --reload
+
+    EPS-ODBEE02
+    firewall-cmd --add-port 1521/tcp --permanent 
+    firewall-cmd --add-port 1523/tcp --permanent 
     firewall-cmd --add-port 3389/tcp --permanent 
     firewall-cmd --add-port 7006/tcp --permanent 
     firewall-cmd --reload
@@ -1670,6 +1688,18 @@ function Invoke-CalculateHugePagesForOracleDatabase{
     Write-Host "vm.nr_hugepages = $NUM_PG"
 }
 
+function Invoke-LinuxNFSBackupServerProvision{
+    param(
+        $Environmentname
+    )
+    $ApplicationName = "LinuxNFSBackupServer"
+    Invoke-ApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $Nodes | Install-PowershellCoreForLinux
+    $Nodes | Invoke-YumUpdateOnLinux
+
+}
+
 function Invoke-OpenVPNServerProvision{
     param(
         $EnvironmentName
@@ -1762,7 +1792,11 @@ EOF
     $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.Read()
-    $SSHShellStream.WriteLine($DatabaseShutdownCommand)
+#    $SSHShellStream.WriteLine($DatabaseShutdownCommand)
+    $SSHShellStream.WriteLine('sqlplus "/ as sysdba"<<EOF')
+    $SSHShellStream.WriteLine("startup;")
+    $SSHShellStream.WriteLine("exit;")
+    $SSHShellStream.WriteLine("EOF")
     if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
         Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
     }    
@@ -1836,7 +1870,7 @@ function Stop-OracleIAS{
         [parameter(mandatory)]$SSHSession
     )
     $ExpectString = "SSHShellStreamPrompt"
-    $TimeSpan = New-TimeSpan -Minutes 5
+    $TimeSpan = New-TimeSpan -Minutes 10
     $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
     $IASShutdownCommand = "adstpall.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
     $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l"
@@ -2130,7 +2164,7 @@ function Start-OracleSOAWeblogic{
     $startNodeManagerTailCommand = @"
 tail -f nohup.out  | while read LOGLINE
 do
-[[ "`${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P $$ tail
+[[ "`${LOGLINE}" == *"Secure socket listener started on port"* ]] && pkill -P `$`$ tail
 done
 "@
 $startWeblogicTailCommand = @"
@@ -2518,7 +2552,7 @@ cd $($UIDomainBinPath)
 
 function Install-GnomeDesktopOnLinux {
     param(
-        [parameter(mandatory)]$SSHSession
+        [parameter(mandatory,ValueFromPipelineByPropertyName)]$SSHSession
     )
     $InstallCommand = "yum -y groupinstall 'X Window System' 'GNOME'"
     Invoke-SSHCommand -SSHSession $SSHSession -Command $Command -TimeOut 1200
@@ -2526,8 +2560,8 @@ function Install-GnomeDesktopOnLinux {
 
 function Invoke-YumUpdateOnLinux {
     param(
-        [parameter(mandatory)]$SSHSession
+        [parameter(mandatory,ValueFromPipelineByPropertyName)]$SSHSession
     )
-    $InstallCommand = "yum -y update"
+    $Command = "yum -y update"
     Invoke-SSHCommand -SSHSession $SSHSession -Command $Command -TimeOut 1200
 }

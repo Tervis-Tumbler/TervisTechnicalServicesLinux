@@ -1,0 +1,1 @@
+#40 6 * * 3 sh /u01/app/applmgr/raghu/clear_log.sh > /u01/app/applmgr/raghu/clear_log.log

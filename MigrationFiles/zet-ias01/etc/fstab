@@ -1,0 +1,17 @@
+
+#
+# /etc/fstab
+# Created by anaconda on Thu May  3 13:03:02 2018
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/ol-root     /                       xfs     defaults        0 0
+UUID=d35a9b9a-c538-46ce-a751-09df61f60525 /boot                   xfs     defaults        0 0
+/dev/mapper/ol-swap     swap                    swap    defaults        0 0
+/dev/ebsias_vg/ebsias  /u01     ext3    _netdev,defaults      1 0
+/dev/rpias_vg/rpias   /u02    ext3    _netdev,defaults      1 0
+zet-odbee01.tervis.prv:/ebsapps      /ebsapps        nfs4     rw      0 0
+dfs-10:/EBSPatchBackup      /patches        nfs     rw      0 0
+dfs-10:navimport/Zeta  /navimport      nfs rw  0 0
+inf-dfshq2:ebsimport/Zeta      /ebs-import nfs     rw        0       0
