@@ -2604,3 +2604,55 @@ function Invoke-YumUpdateOnLinux {
     $Command = "yum -y update"
     Invoke-SSHCommand -SSHSession $SSHSession -Command $Command -TimeOut 1200
 }
+
+function Get-OracleWeblogicManagedServerStatus{
+    param(
+        [parameter(mandatory)]$Computername,
+        [parameter(mandatory)]$SID
+    )
+    $ApplmgrPasswordstateCredential = Find-PasswordstatePassword -Title "$Computername - applmgr" -AsCredential | select -first 1
+    $WLPasswordstateCredential = Find-PasswordstatePassword -Title "$SID" | Where UserName -eq "Weblogic" | select -first 1
+    $SSHSession = New-SSHSession -ComputerName $Computername -Credential $ApplmgrPasswordstateCredential
+    $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
+    $WLDomainPath = Split-Path -Path $ServiceBinPaths.WLServerBinPath
+    $WLLibPath = ("$WLDomainPath/lib").Replace("\", "/")
+    $ManagedServers = Get-OracleWeblogicManagedServersFromConfig @PSBoundParameters -SSHSession $SSHSession 
+    $AdminServer = $ManagedServers | Where-Object name -eq AdminServer
+    if($AdminServer."listen-port"){
+        $AdminServerPort = $AdminServer."listen-port"
+    }
+    else{
+        $AdminServerPort = 7001
+    }
+    
+    $TimeSpan = New-TimeSpan -Minutes 5
+    $ExpectString = "SSHShellStreamPrompt"
+    $SSHShellStream = New-SSHShellStream -SSHSession $SshSession -Columns 200
+    $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
+    $SSHShellStream.WriteLine($SID)
+    $SSHShellStream.WriteLine("Disabling history for health checks")
+    $SSHShellStream.WriteLine("set +o history")
+    sleep 1
+    $SSHShellStream.Read() | Out-Null
+    
+    ForEach($ManagedServer in $ManagedServers){
+        $JavaCommand = "java -cp $($WLLibPath)/weblogic.jar weblogic.Admin -adminurl t3://$($Computername):$($AdminServerPort) -username $($WLPasswordstateCredential.UserName) -password $($WLPasswordstateCredential.Password) GETSTATE $($ManagedServer.Name) 1> /tmp/WLMSStatus"
+        Write-Verbose $ManagedServer.name
+        Write-Verbose "Executing $JavaCommand"
+        $SSHShellStream.WriteLine($JavaCommand)
+        $SSHShellStream.Expect($ExpectString,$TimeSpan) | Out-Null
+        $StatusFile = Invoke-SSHCommand -SSHSession $SSHSession -Command "cat /tmp/WLMSStatus"
+        $Status = $StatusFile.Output[0] | Split-String " " | select -Last 1
+
+        [PSCustomObject]@{
+            Name = $ManagedServer.Name
+            Status = $Status
+        }
+        Invoke-SSHCommand -Command "rm -f /tmp/WLMSStatus" -SSHSession $sshsession | Out-Null
+    }
+    get-sshsession | Remove-SSHSession | Out-Null
+}
+
+function Get-ProductionSOAManagedServerStatus{
+    Get-OracleWeblogicManagedServerStatus -Computername p-weblogic01 -SID PRDsoa
+}
