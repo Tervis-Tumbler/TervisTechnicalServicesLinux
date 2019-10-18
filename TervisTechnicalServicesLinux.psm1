@@ -1,4 +1,4 @@
-﻿$ModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
+$ModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
 . $ModulePath\TervisTechnicalServicesLinuxDefinitions.ps1
 
 
@@ -1386,34 +1386,16 @@ function Invoke-LinuxMigrateSystemDiskToNewVM {
     realm join
 }
 
-function Set-LinuxSSSDConfig {
+function Set-LinuxSSSDDefaultDomainSuffix {
     [CmdletBinding()]
     param(
         [parameter(Mandatory,ValueFromPipeline)]$Node
     )
     process{
-        $SSSDConfFile = "/etc/sssd/sssd.conf"
-        $SSSDConfiguration = @"
-cat >$SSSDConfFile <<
-[sssd]
-domains = tervis.prv
-config_file_version = 2
-services = nss, pam
-default_domain_suffix = tervis.prv
-[domain/tervis.prv]
-ad_domain = tervis.prv
-krb5_realm = TERVIS.PRV
-realmd_tags = manages-system joined-with-adcli
-cache_credentials = True
-id_provider = ad
-krb5_store_password_if_offline = True
-default_shell = /bin/bash
-ldap_id_mapping = True
-use_fully_qualified_names = True
-fallback_homedir = /home/%u@%d
-access_provider = ad
-"@
-    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSSDConfiguration
+    $SSHCommandSuffixSet = "augtool -b -s set /files/etc/sssd/sssd.conf/target[1]/default_domain_suffix tervis.prv"
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommandSuffixSet
+    $SSHCommandSSSDRestart = "systemctl restart sssd"
+    Invoke-SSHCommand -SSHSession $Node.SShSession -Command $SSHCommandSSSDRestart
     }
 }
 
@@ -1539,6 +1521,14 @@ function Set-LinuxFirewall{
     firewall-cmd --add-port 3389/tcp --permanent 
     firewall-cmd --reload
 
+    Dlt-IAS01
+    firewall-cmd --permanent --add-service=nfs --add-service=snmp --add-service=ftp
+    firewall-cmd --add-port 8005/tcp --permanent 
+    firewall-cmd --add-port 8006/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --add-port 10815/tcp --permanent 
+    firewall-cmd --reload
+
     Dlt-odbee01
     firewall-cmd --add-port 1521/tcp --permanent 
     firewall-cmd --add-port 1523/tcp --permanent 
@@ -1571,6 +1561,14 @@ function Set-LinuxFirewall{
     firewall-cmd --add-port 7005/tcp --permanent
     firewall-cmd --reload
 
+    EPS-IAS01
+    firewall-cmd --permanent --add-service=nfs --add-service=snmp --add-service=ftp
+    firewall-cmd --add-port 8005/tcp --permanent cat /
+    firewall-cmd --add-port 8006/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --add-port 10815/tcp --permanent 
+    firewall-cmd --reload
+
     EPS-ODBEE02
     firewall-cmd --add-port 1521/tcp --permanent 
     firewall-cmd --add-port 1523/tcp --permanent 
@@ -1599,6 +1597,17 @@ function Set-LinuxFirewall{
     firewall-cmd --add-port 1521/tcp --permanent 
     firewall-cmd --add-port 3389/tcp --permanent 
     firewall-cmd --reload
+
+    P-Weblogic03
+#    firewall-cmd --add-port 1523/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --add-port 7002/tcp --permanent  ##adminserver
+    firewall-cmd --add-port 7003/tcp --permanent  ##soa_server1
+    firewall-cmd --add-port 7004/tcp --permanent  ##osb_server1
+    firewall-cmd --add-port 7005/tcp --permanent  ##ess_server1
+    firewall-cmd --add-port 7006/tcp --permanent  ##bam_server1
+    firewall-cmd --reload
+
 "@
 }
 
