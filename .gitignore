@@ -1,5 +1,7 @@
 OracleODBEEHome/
-.\temp\*
+temp
+temp/
+temp\
 temp/etc/sysconfig/network
 temp\agentID.txt
 temp/etc/hostname

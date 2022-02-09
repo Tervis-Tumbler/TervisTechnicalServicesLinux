@@ -1,4 +1,4 @@
-$ModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
+﻿$ModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
 . $ModulePath\TervisTechnicalServicesLinuxDefinitions.ps1
 
 
@@ -322,9 +322,29 @@ function Invoke-OracleIASProvision{
     $Nodes | Invoke-CreateOracleUserAccounts
     $Nodes | Invoke-YumUpdateOnLinux
     $Nodes | Install-GnomeDesktopOnLinux
-    $Nodes | Invoke-ConfigureSSMTPForOffice365
+###### chcon -R unconfined_u:object_r:user_home_t:s0 /u01/app/oracle/.ssh/
+
+
 }
 
+function Invoke-OracleIAS10CompatabilityCaveats{
+    param(
+        [Parameter(Mandatory,ValueFromPipeline)]$Node   
+    )
+#    yum remove lesstif
+#    wget https://oss.oracle.com/projects/compat-oracle/dist/files/Enterprise_Linux/openmotif21-2.1.30-11.el7.i686.rpm
+#    rpm -ivh openmotif21-2.1.30-11.el7.i686.rpm
+#        wget https://oss.oracle.com/projects/compat-oracle/dist/files/Enterprise_Linux/xorg-x11-libs-compat-6.8.2-1.EL.33.0.1.i386.rpm
+#        rpm -ivh xorg-x11-libs-compat-6.8.2-1.EL.33.0.1.i386.rpm
+#    wget https://oss.oracle.com/projects/compat-oracle/dist/files/Enterprise_Linux/compat-libstdc++-296-2.96-144.0.2.el7.i686.rpm
+#    rpm -ivh compat-libstdc++-296-2.96-144.0.2.el7.i686.rpm
+#    Invoke-SSHCommand -SSHSession $Node.SSHSession -Command "ln -s /usr/lib/libgdbm.so.2.0.0 /usr/lib/libdb.so.2"
+
+
+    #enable ol7_addons in public-yum-ol7.repo
+    #yum install oracle-ebs-server-R12-preinstall
+    #Disable ol7_addons
+}
 function Invoke-OracleWeblogicProvision{
     param (
         $EnvironmentName
@@ -628,11 +648,6 @@ function New-LinuxISCSISetup {
         Invoke-SSHCommand -SSHSession $SSHSession -Command "systemctl start multipathd;"
         Invoke-SSHCommand -SSHSession $SSHSession -Command "systemctl enable iscsid;"
         Invoke-SSHCommand -SSHSession $SSHSession -Command "systemctl start iscsid;"
-        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -D"
-        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -D"
-        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns01.tervis.prv -o update -n discovery.startup -v automatic"
-        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m discoverydb -t isns -p inf-isns02.tervis.prv -o update -n discovery.startup -v automatic"
-        Invoke-SSHCommand -SSHSession $SSHSession -Command "iscsiadm -m node -l"
         Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m discovery -t sendtargets -p 10.172.68.5;"
         Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m discovery -t sendtargets -p 10.172.68.6;"
         Invoke-SSHCommand -SSHSession $sshsessions -Command "iscsiadm -m node -T iqn.1992-04.com.emc:cx.apm00142217660.a4 -p 10.172.68.5 -l;"
@@ -1422,7 +1437,7 @@ function Invoke-ProcessOracleLinuxTemplateFiles {
     process {
         $TervisTechnicalservicesLinuxModulePath = (Get-Module -ListAvailable TervisTechnicalServicesLinux).ModuleBase
         $OracleLinuxTemplateFilesPath = "$TervisTechnicalservicesLinuxModulePath\OracleLinuxTemplateHome\$ApplicationName"
-        $OracleODBEETemplateTempPath = "$TervisTechnicalservicesLinuxModulePath\Temp"
+        $OracleODBEETemplateTempPath = "$TervisTechnicalservicesLinuxModulePath\Temp\$ApplicationName"
         $OracleRootPath = "/"
 #        $Nodes = Get-TervisApplicationNode -ApplicationName OracleODBEE -EnvironmentName $EnvironmentName
 #        $NodeNumber = $Nodes.ComputerName.IndexOf($ComputerName) + 1
@@ -1583,6 +1598,17 @@ function Set-LinuxFirewall{
     firewall-cmd --add-port 1526/tcp --permanent 
     firewall-cmd --add-port 1527/tcp --permanent 
     firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --reload
+
+    Production ebsapps-prd
+    firewall-cmd --permanent --add-service=nfs --add-service=snmp --add-service=ftp
+    firewall-cmd --add-port 8010/tcp --permanent
+    firewall-cmd --add-port 8011/tcp --permanent 
+    firewall-cmd --add-port 3389/tcp --permanent 
+    firewall-cmd --add-port 10815/tcp --permanent 
+    firewall-cmd --add-port 10260/tcp --permanent 
+    firewall-cmd --add-port 10262/tcp --permanent 
+    firewall-cmd --add-port 10264/tcp --permanent 
     firewall-cmd --reload
 
     Production ebsdb-prd
@@ -1796,19 +1822,25 @@ EOF
     $TerminateDBConnectionsCommand = "ps -u `${LOGNAME} -o pid,args | grep '$($SID) (LOCAL=NO)' | grep -v grep | sort -r -n | awk '{print `$1}' | xargs kill -9"
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
-    Invoke-SSHCommand -SSHSession $SSHSession -Command $TerminateDBConnectionsCommand
+#    Invoke-SSHCommand -SSHSession $SSHSession -Command $TerminateDBConnectionsCommand
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    Write-Verbose "Setting expect string and SID"
     $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
-    $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.Read()
-#    $SSHShellStream.WriteLine($DatabaseShutdownCommand)
-    $SSHShellStream.WriteLine('sqlplus "/ as sysdba"<<EOF')
-    $SSHShellStream.WriteLine("startup;")
-    $SSHShellStream.WriteLine("exit;")
-    $SSHShellStream.WriteLine("EOF")
-    if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
-        Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
-    }    
+    $SSHShellStream.WriteLine($SID.ToLower())
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+    $SSHShellStream.Read()
+    Write-Verbose "Executing Database Shutdown Command"
+    $SSHShellStream.WriteLine($DatabaseShutdownCommand)
+    $SSHShellStream.Expect($ExpectString,$TimeSpan)
+#    Invoke-SSHCommand -Command $DatabaseShutdownCommand -SSHSession $SSHSession
+#    $SSHShellStream.WriteLine('sqlplus "/ as sysdba"<<EOF')
+#    $SSHShellStream.WriteLine("startup;")
+#    $SSHShellStream.WriteLine("exit;")
+#    $SSHShellStream.WriteLine("EOF")
+#    if (-not $SSHShellStream.Expect($ExpectString,$TimeSpan)){
+#        Write-Error -Message "Database Shutdown Timed Out" -Category LimitsExceeded -ErrorAction Stop
+#    }    
 }
 
 function Start-OracleDatabase{
@@ -1882,17 +1914,10 @@ function Stop-OracleIAS{
     $TimeSpan = New-TimeSpan -Minutes 10
     $PasswordstateEntry = Find-PasswordstatePassword -Title " $SID " -UserName "apps" | select -first 1
     $IASShutdownCommand = "adstpall.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)"
-    $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l"
+    $IASProcessCountCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID.ToUpper())\>' | wc -l"
     $IASProcessCleanupKillCommand = "ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | awk -v FS='/' '{print `$3}' | xargs kill -9"
     $IASProcessCount = (Invoke-SSHCommand -SSHSession $SshSession -Command $IASProcessCountCommand).output
 
-    $SSHCommand = @"
-    $($SID.ToLower())
-    adstpall.sh $($PasswordstateEntry.username)/$($PasswordstateEntry.Password)
-    sleep 120
-    ps -u `${LOGNAME} -o pid --no-heading | xargs -I % sh -c 'ls -l /proc/%/exe 2> /dev/null' | grep '\<$($SID)\>' | wc -l
-"@ -split "`r`n" -join ";"
-    
 
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
     $SSHShellStream.WriteLine($SID.ToLower())
@@ -1946,6 +1971,7 @@ param(
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+#    Stop-OracleWeblogicManagedServers @PSBoundParameters
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
 #    $SSHShellStream.WriteLine("cd $($WLServerBinPath)")
@@ -1979,6 +2005,7 @@ function Stop-OracleDiscoverer{
     $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.Read()
+    Stop-OracleWeblogicManagedServers @PSBoundParameters
     $SSHShellStream.WriteLine("opmnctl stopall")
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
@@ -2005,6 +2032,7 @@ function Stop-OracleSOAWeblogic{
     $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
     $SSHShellStream.Read()
+#    Stop-OracleWeblogicManagedServers @PSBoundParameters
     $SSHShellStream.WriteLine("./stopWebLogic.sh")
     $SSHShellStream.Expect($ExpectString,$TimeSpan)
     $SSHShellStream.Read()
@@ -2024,6 +2052,7 @@ function Stop-OracleBIWeblogic{
     $ExpectString = "SSHShellStreamPrompt"
     $TimeSpan = New-TimeSpan -Minutes 5
     $SSHShellStream = New-SSHShellStream -SSHSession $SshSession
+    Stop-OracleWeblogicManagedServers @PSBoundParameters
     $SSHShellStream.WriteLine($SID.ToLower())
     $SSHShellStream.WriteLine("PS1=$ExpectString\\n\\r")
     $SSHShellStream.WriteLine("cd $($UIDomainBinPath)")
@@ -2538,8 +2567,12 @@ function Get-OracleWeblogicManagedServersFromConfig{
     param(
         [parameter(mandatory)]$Computername,
         [parameter(mandatory)]$SID,
-        [parameter(mandatory)]$SSHSession
+        $SSHSession
     )
+    if(-not $SshSession){
+        $ApplmgrPasswordstateCredential = Find-PasswordstatePassword -Title "$Computername - applmgr" -AsCredential | select -first 1
+        $SSHSession = New-SSHSession -ComputerName $Computername -Credential $ApplmgrPasswordstateCredential
+    }
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
     $UIServerConfigPath = $ServiceBinPaths.UIServerConfigPath
     $ConfigXML = [xml]((Invoke-SSHCommand -SSHSession $SshSession -Command "cat $UIServerConfigPath/config.xml").output)
@@ -2580,16 +2613,16 @@ function Stop-OracleWeblogicManagedServers{
         [parameter(mandatory)]$SSHSession
     )
     $ServiceBinPaths = (Get-TervisOracleServiceBinPaths -SID $SID).Paths
-    $UIDomainBinPath = $ServiceBinPaths.BIUIDomainBinPath
+    $UIDomainBinPath = $ServiceBinPaths.UIDomainBinPath
     $ManagedServers = Get-OracleWeblogicManagedServersFromConfig @PSBoundParameters
     $AdminServer = $ManagedServers | Where-Object name -eq AdminServer
-#    $AdminServerPort = $AdminServer."listen-port"
+    $AdminServerPort = $AdminServer."listen-port"
 
     ForEach($ManagedServer in $ManagedServers){
         $SSHCommand = @"
 $($SID.ToLower())
 cd $($UIDomainBinPath)
-./StopManagedWebLogic.sh $($ManagedServer.name) t3://localhost:$($AdminServerPort)
+./stopManagedWebLogic.sh $($ManagedServer.name) t3://localhost:$($AdminServerPort)
 "@ -split "`r`n" -join ";"
 
     If($ManagedServer.name -ne "AdminServer"){
@@ -2603,7 +2636,7 @@ function Install-GnomeDesktopOnLinux {
         [parameter(mandatory,ValueFromPipelineByPropertyName)]$SSHSession
     )
     $InstallCommand = "yum -y groupinstall 'X Window System' 'GNOME'"
-    Invoke-SSHCommand -SSHSession $SSHSession -Command $Command -TimeOut 1200
+    Invoke-SSHCommand -SSHSession $SSHSession -Command $InstallCommand -TimeOut 1200
 }
 
 function Invoke-YumUpdateOnLinux {
@@ -2664,4 +2697,16 @@ function Get-OracleWeblogicManagedServerStatus{
 
 function Get-ProductionSOAManagedServerStatus{
     Get-OracleWeblogicManagedServerStatus -Computername p-weblogic01 -SID PRDsoa
+}
+
+function Invoke-EcoStruxureITProvision{
+    param(
+        $Environmentname
+    )
+    $ApplicationName = "EcoStruxureIT"
+    Invoke-ApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
+    $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
+    $Nodes | Install-PowershellCoreForLinux
+    $Nodes | Invoke-YumUpdateOnLinux
+
 }
