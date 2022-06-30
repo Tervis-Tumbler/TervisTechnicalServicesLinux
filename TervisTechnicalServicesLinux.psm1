@@ -1730,7 +1730,7 @@ function Invoke-LinuxNFSBackupServerProvision{
     $ApplicationName = "LinuxNFSBackupServer"
     Invoke-ApplicationProvision -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName
     $Nodes = Get-TervisApplicationNode -ApplicationName $ApplicationName -EnvironmentName $EnvironmentName -IncludeSSHSession -IncludeSFTSession
-    $Nodes | Install-PowershellCoreForLinux
+#    $Nodes | Install-PowershellCoreForLinux
     $Nodes | Invoke-YumUpdateOnLinux
 
 }
